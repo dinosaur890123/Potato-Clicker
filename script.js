@@ -33,12 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Definitions ---
     const achievements = {
-        'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => false }, // Will be manually triggered
-        'firstMash': { name: 'Spudtastic Voyage', description: 'Reset for the first time.', condition: () => gameState.totalStarch > 0 },
-        'firstClick': { name: 'First Step', description: 'Click the potato for the first time.', condition: () => gameState.clicks >= 1 },
-        'hundredClicks': { name: 'Click Happy', description: 'Click the potato 100 times.', condition: () => gameState.clicks >= 100 },
-        'firstGenerator': { name: 'Growing Garden', description: 'Buy your first Potato Sprout.', condition: () => generators[0].owned >= 1 },
-        'tenThousandPotatoes': { name: 'Spud Central', description: 'Accumulate 10,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 10000 },
+        'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => false, reward: 'Unlocks the golden potato mechanic!', icon: '🥇' }, // Will be manually triggered
+        'firstMash': { name: 'Spudtastic Voyage', description: 'Reset for the first time.', condition: () => gameState.totalStarch > 0, reward: 'Shows you understand the prestige system!', icon: '🚀' },
+        'firstClick': { name: 'First Step', description: 'Click the potato for the first time.', condition: () => gameState.clicks >= 1, reward: 'Your journey begins!', icon: '👆' },
+        'hundredClicks': { name: 'Click Happy', description: 'Click the potato 100 times.', condition: () => gameState.clicks >= 100, reward: 'You\'re getting the hang of this!', icon: '💪' },
+        'firstGenerator': { name: 'Growing Garden', description: 'Buy your first Potato Sprout.', condition: () => generators[0].owned >= 1, reward: 'Your first step into automation!', icon: '🌱' },
+        'tenThousandPotatoes': { name: 'Spud Central', description: 'Accumulate 10,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 10000, reward: 'A significant potato milestone!', icon: '🥔' },
     };
 
     const upgrades = {
@@ -154,16 +154,63 @@ document.addEventListener('DOMContentLoaded', () => {
         grid.innerHTML = '';
         for (const id in achievements) {
             const achievement = achievements[id];
+            const isUnlocked = gameState.unlockedAchievements.has(id);
             const elem = document.createElement('div');
-            elem.className = gameState.unlockedAchievements.has(id) ? 'achievement-tile unlocked' : 'achievement-tile locked';
+            elem.className = isUnlocked ? 'achievement-tile unlocked' : 'achievement-tile locked';
             elem.innerHTML = `
+                <div class="achievement-icon">${achievement.icon}</div>
                 <div class="achievement-tooltip">
                     <h4>${achievement.name}</h4>
-                    <p>${achievement.description}</p>
+                    <p class="achievement-desc">${achievement.description}</p>
+                    <p class="achievement-reward">${achievement.reward}</p>
+                    <p class="achievement-status">${isUnlocked ? 'UNLOCKED' : 'LOCKED'}</p>
                 </div>
             `;
+            
+            // Make achievements clickable to show details
+            elem.addEventListener('click', () => showAchievementDetails(id, achievement, isUnlocked));
+            elem.style.cursor = 'pointer';
+            
             grid.appendChild(elem);
         }
+    }
+
+    function showAchievementDetails(id, achievement, isUnlocked) {
+        // Create modal for achievement details
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay achievement-detail-modal';
+        modal.innerHTML = `
+            <div class="modal-content achievement-detail-content">
+                <h2>${achievement.icon} ${achievement.name}</h2>
+                <div class="achievement-detail-body">
+                    <p class="achievement-desc-large">${achievement.description}</p>
+                    <p class="achievement-reward-large"><strong>Reward:</strong> ${achievement.reward}</p>
+                    <div class="achievement-status-large ${isUnlocked ? 'unlocked' : 'locked'}">
+                        ${isUnlocked ? '✅ UNLOCKED' : '🔒 LOCKED'}
+                    </div>
+                </div>
+                <button class="close-btn">&times;</button>
+            </div>
+        `;
+        
+        // Add to document and show
+        document.body.appendChild(modal);
+        modal.style.display = 'flex';
+        
+        // Close modal functionality
+        const closeBtn = modal.querySelector('.close-btn');
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            modal.remove();
+        });
+        
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+        });
     }
 
     function populatePrestigeUpgrades() {
