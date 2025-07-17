@@ -140,6 +140,16 @@ h1, h2 {
     background-color: #6d5646;
 }
 
+.upgrade.purchased {
+    border-color: #ffc400;
+    background-color: #5c4a3a;
+    cursor: default;
+}
+
+.upgrade.purchased:hover {
+    background-color: #5c4a3a;
+}
+
 .generator-info, .upgrade-info {
     flex-grow: 1;
 }
@@ -164,6 +174,11 @@ h1, h2 {
 }
 
 .cost {
+    font-size: 1.1em;
+    color: #aaffaa; /* Light green for cost */
+}
+
+.upgrade-cost {
     font-size: 1.1em;
     color: #aaffaa; /* Light green for cost */
 }
@@ -480,4 +495,51 @@ button:disabled {
 }
 .prestige-upgrade.purchased .prestige-upgrade-cost {
     color: #8a6d5a;
+}
+
+/* Achievement Notification */
+.achievement-notification {
+    position: fixed;
+    bottom: -100px;
+    right: 20px;
+    background: linear-gradient(135deg, #ffc400, #ff9500);
+    color: #2c1810;
+    padding: 15px 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(255, 196, 0, 0.4);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 280px;
+    transition: bottom 0.5s ease-out, opacity 0.5s ease-out;
+    opacity: 0;
+    border: 2px solid #ffdf80;
+}
+
+.achievement-notification.show {
+    bottom: 20px;
+    opacity: 1;
+}
+
+.achievement-icon {
+    font-size: 2em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.achievement-text {
+    flex: 1;
+}
+
+.achievement-title {
+    font-weight: bold;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+.achievement-name {
+    font-size: 1.1em;
+    font-weight: 600;
 }

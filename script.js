@@ -1,4 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const potatoImg = document.getElementById('potato');
+    const potatoTextOverlay = document.getElementById('potato-text-overlay');
+    const potatoDisplay = document.getElementById('potatoes');
+    const ppsDisplay = document.getElementById('pps');
+    const generatorsContainer = document.getElementById('generators-container');
+    const upgradesContainer = document.getElementById('upgrades-container');
+    const goldenPotatoContainer = document.getElementById('golden-potato-container');
+    const buffDisplay = document.getElementById('buff-display');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeModalBtn = settingsModal.querySelector('.close-btn');
+    const manualSaveBtn = document.getElementById('manual-save-btn');
+    const wipeSaveBtn = document.getElementById('wipe-save-btn');
+    const achievementsModal = document.getElementById('achievements-modal');
+
     // Game State
     let gameState = {
         potatoes: 0,
@@ -6,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         clicks: 0,
         totalPps: 0,
         clickPower: 1,
-        clickUpgradeCost: 10,
         buffs: {},
         unlockedAchievements: new Set(),
         purchasedUpgrades: new Set(),
@@ -18,8 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Definitions ---
     const achievements = {
-        'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => gameState.unlockedAchievements.has('goldenTouch') }, // Special case
+        'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => false }, // Will be manually triggered
         'firstMash': { name: 'Spudtastic Voyage', description: 'Reset for the first time.', condition: () => gameState.totalStarch > 0 },
+        'firstClick': { name: 'First Step', description: 'Click the potato for the first time.', condition: () => gameState.clicks >= 1 },
+        'hundredClicks': { name: 'Click Happy', description: 'Click the potato 100 times.', condition: () => gameState.clicks >= 100 },
+        'firstGenerator': { name: 'Growing Garden', description: 'Buy your first Potato Sprout.', condition: () => generators[0].owned >= 1 },
+        'tenThousandPotatoes': { name: 'Spud Central', description: 'Accumulate 10,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 10000 },
     };
 
     const upgrades = {
@@ -83,6 +102,53 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDisplay();
     }
 
+    function populateUpgrades() {
+        upgradesContainer.innerHTML = '';
+        for (const id in upgrades) {
+            const upgrade = upgrades[id];
+            if (upgrade.requirement && !upgrade.requirement()) {
+                continue; // Skip upgrades that don't meet requirements
+            }
+            
+            const elem = document.createElement('div');
+            elem.id = `upgrade-${id}`;
+            elem.className = gameState.purchasedUpgrades.has(id) ? 'upgrade purchased' : 'upgrade';
+            elem.innerHTML = `
+                <h3>${upgrade.name}</h3>
+                <p>${upgrade.description}</p>
+                <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
+            `;
+            
+            if (!gameState.purchasedUpgrades.has(id)) {
+                elem.addEventListener('click', () => buyUpgrade(id));
+                if (gameState.potatoes < upgrade.cost) {
+                    elem.classList.add('disabled');
+                }
+            }
+            
+            upgradesContainer.appendChild(elem);
+        }
+    }
+
+    function populateAchievementsGrid() {
+        const grid = document.getElementById('achievements-grid');
+        if (!grid) return; // Exit if element doesn't exist
+        
+        grid.innerHTML = '';
+        for (const id in achievements) {
+            const achievement = achievements[id];
+            const elem = document.createElement('div');
+            elem.className = gameState.unlockedAchievements.has(id) ? 'achievement-tile unlocked' : 'achievement-tile locked';
+            elem.innerHTML = `
+                <div class="achievement-tooltip">
+                    <h4>${achievement.name}</h4>
+                    <p>${achievement.description}</p>
+                </div>
+            `;
+            grid.appendChild(elem);
+        }
+    }
+
     function populatePrestigeUpgrades() {
         const container = document.getElementById('prestige-upgrades-container');
         container.innerHTML = '';
@@ -108,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     function addEventListeners() {
         potatoImg.addEventListener('click', handlePotatoClick);
-        buyClickUpgradeBtn.addEventListener('click', buyClickUpgrade);
 
         // Settings listeners
         settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
@@ -142,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePotatoClick(event) {
+        gameState.clicks++;
         let clickValue = gameState.clickPower;
         if (gameState.purchasedUpgrades.has('potatoMouse')) {
             clickValue += gameState.totalPps * 0.01;
@@ -159,15 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.potatoes -= currentCost;
             gen.owned++;
             recalculatePps();
-            updateDisplay();
-        }
-    }
-
-    function buyClickUpgrade() {
-        if (gameState.potatoes >= gameState.clickUpgradeCost) {
-            gameState.potatoes -= gameState.clickUpgradeCost;
-            gameState.clickPower++;
-            gameState.clickUpgradeCost = Math.ceil(gameState.clickUpgradeCost * 1.25);
             updateDisplay();
         }
     }
@@ -206,15 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ppsDisplay.textContent = formatNumber(gameState.totalPps);
         document.getElementById('starch').textContent = formatNumber(gameState.starch);
 
-        // Update click upgrade (if it's being displayed)
-        const clickUpgradeElement = document.getElementById('click-upgrade');
-        if (clickUpgradeElement) {
-            clickUpgradeElement.querySelector('.cost').textContent = formatNumber(gameState.clickUpgradeCost);
-            clickUpgradeElement.querySelector('.click-power').textContent = formatNumber(gameState.clickPower);
-            buyClickUpgradeBtn.disabled = gameState.potatoes < gameState.clickUpgradeCost;
-            clickUpgradeElement.classList.toggle('disabled', gameState.potatoes < clickUpgrade.cost);
-        }
-
         // Update generators
         generators.forEach(gen => {
             const cost = calculateCost(gen);
@@ -225,6 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 genElement.classList.toggle('disabled', gameState.potatoes < cost);
             }
         });
+
+        // Update upgrades affordability
+        for (const id in upgrades) {
+            const upgrade = upgrades[id];
+            const upgradeElement = document.getElementById(`upgrade-${id}`);
+            if (upgradeElement && !gameState.purchasedUpgrades.has(id)) {
+                upgradeElement.classList.toggle('disabled', gameState.potatoes < upgrade.cost);
+            }
+        }
 
         // Update buff display
         updateBuffDisplay();
@@ -268,6 +325,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleGoldenPotatoClick(event) {
         const potato = event.target;
         potato.remove(); // Remove it immediately
+
+        // Unlock Golden Touch achievement
+        if (!gameState.unlockedAchievements.has('goldenTouch')) {
+            gameState.unlockedAchievements.add('goldenTouch');
+            showAchievementNotification('Golden Touch');
+            populateAchievementsGrid();
+        }
 
         // Give a random reward
         const roll = Math.random();
@@ -371,7 +435,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 clicks: 0,
                 totalPps: 0,
                 clickPower: 1,
-                clickUpgradeCost: 10,
                 buffs: {},
                 unlockedAchievements: achievements,
                 purchasedUpgrades: new Set(),
@@ -399,12 +462,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Achievement Logic ---
     function checkAchievements() {
+        let newAchievements = false;
         for (const [id, ach] of Object.entries(achievements)) {
             if (!gameState.unlockedAchievements.has(id) && ach.condition()) {
                 gameState.unlockedAchievements.add(id);
-                alert(`Achievement Unlocked: ${ach.name}`);
+                showAchievementNotification(ach.name);
+                newAchievements = true;
             }
         }
+        if (newAchievements) {
+            populateAchievementsGrid();
+        }
+    }
+
+    function showAchievementNotification(achievementName) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'achievement-notification';
+        notification.innerHTML = `
+            <div class="achievement-icon">🏆</div>
+            <div class="achievement-text">
+                <div class="achievement-title">Achievement Unlocked!</div>
+                <div class="achievement-name">${achievementName}</div>
+            </div>
+        `;
+
+        // Add to document
+        document.body.appendChild(notification);
+
+        // Trigger animation
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 100);
+
+        // Remove after 4 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 500); // Wait for fade out animation
+        }, 4000);
     }
 
 
@@ -515,7 +612,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function createFloatingText(x, y, text) {
         const elem = document.createElement('div');
         elem.className = 'floating-text';
-        elem.textContent = text;
+        
+        // To avoid showing "+1.00" for small numbers, format it cleanly.
+        const num = parseFloat((text || '').toString().replace('+', ''));
+        if (!isNaN(num)) {
+            if (num < 10) {
+                elem.textContent = `+${num.toFixed(2)}`;
+            } else {
+                elem.textContent = `+${formatNumber(Math.floor(num))}`;
+            }
+        } else {
+            elem.textContent = text;
+        }
         
         // Position the text near the click
         const rect = potatoImg.getBoundingClientRect();
