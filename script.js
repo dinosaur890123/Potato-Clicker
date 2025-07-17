@@ -312,12 +312,19 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.potatoes += clickValue;
         gameState.totalPotatoesEarned += clickValue;
         
-        // Simple floating text without combo display
-        createFloatingText(event.clientX, event.clientY, `+${formatNumber(clickValue)}`);
+        // Enhanced floating text with combo info
+        let displayText = `+${formatNumber(clickValue)}`;
+        if (gameState.clickCombo > 1) {
+            displayText += ` (${gameState.clickCombo}x COMBO!)`;
+        }
+        createFloatingText(event.clientX, event.clientY, displayText, gameState.clickCombo);
         
         // Potato shake animation
         potatoImg.classList.add('shake');
         setTimeout(() => potatoImg.classList.remove('shake'), 200);
+        
+        // Play click sound
+        playClickSound();
         
         updateDisplay();
     }
@@ -426,11 +433,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4000);
     }
 
+    function playClickSound() {
+        // Create audio context for click sounds
+        if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
+            try {
+                const audioContext = new (AudioContext || webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800 + Math.random() * 200, audioContext.currentTime);
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (e) {
+                // Silent fail if audio not supported
+            }
+        }
+    }
+
     function updateDisplay() {
         // Update main stats
         potatoDisplay.textContent = formatNumber(Math.floor(gameState.potatoes));
         ppsDisplay.textContent = formatNumber(gameState.totalPps);
         document.getElementById('starch').textContent = formatNumber(gameState.starch);
+        
+        // Update combo display
+        const comboDisplay = document.getElementById('combo-display');
+        const comboCount = document.getElementById('combo-count');
+        if (gameState.clickCombo > 1) {
+            comboDisplay.style.display = 'block';
+            comboCount.textContent = gameState.clickCombo;
+            comboDisplay.style.color = gameState.clickCombo > 5 ? '#ff69b4' : gameState.clickCombo > 3 ? '#ffa500' : '#90ee90';
+        } else {
+            comboDisplay.style.display = 'none';
+        }
 
         // Update generators
         generators.forEach(gen => {
@@ -778,9 +821,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.ceil(gen.baseCost * Math.pow(1.15, gen.owned));
     }
 
-    function createFloatingText(x, y, text) {
+    function createFloatingText(x, y, text, combo = 1) {
         const elem = document.createElement('div');
         elem.className = 'floating-text';
+        
+        // Color and size based on combo
+        if (combo > 5) {
+            elem.classList.add('combo-amazing');
+        } else if (combo > 3) {
+            elem.classList.add('combo-great');
+        } else if (combo > 1) {
+            elem.classList.add('combo-good');
+        }
         
         // To avoid showing "+1.00" for small numbers, format it cleanly.
         const num = parseFloat((text || '').toString().replace(/[+,]/g, ''));
@@ -790,21 +842,24 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elem.textContent = `+${formatNumber(Math.floor(num))}`;
             }
+            if (text.includes('COMBO')) {
+                elem.textContent = text; // Keep the full combo text
+            }
         } else {
             elem.textContent = text;
         }
         
         // Position the text near the click
         const rect = potatoImg.getBoundingClientRect();
-        elem.style.left = `${x - rect.left}px`;
-        elem.style.top = `${y - rect.top}px`;
+        elem.style.left = `${x - rect.left + Math.random() * 40 - 20}px`;
+        elem.style.top = `${y - rect.top + Math.random() * 40 - 20}px`;
 
         potatoTextOverlay.appendChild(elem);
 
         // Remove the element after the animation finishes
         setTimeout(() => {
             elem.remove();
-        }, 1500);
+        }, 2000);
     }
 
     function formatNumber(num) {

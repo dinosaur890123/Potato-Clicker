@@ -102,19 +102,89 @@ h1, h2 {
     font-weight: bold;
     color: #ffc400;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    animation: float-up 1.5s ease-out forwards;
+    animation: float-up 2s ease-out forwards;
     user-select: none;
     z-index: 1000;
+}
+
+.floating-text.combo-good {
+    color: #90ee90;
+    font-size: 28px;
+    animation: float-up-combo 2s ease-out forwards;
+}
+
+.floating-text.combo-great {
+    color: #ffa500;
+    font-size: 32px;
+    animation: float-up-combo-great 2s ease-out forwards;
+}
+
+.floating-text.combo-amazing {
+    color: #ff69b4;
+    font-size: 40px;
+    animation: float-up-combo-amazing 2s ease-out forwards;
+    text-shadow: 0 0 10px #ff69b4;
 }
 
 @keyframes float-up {
     from {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
     to {
         opacity: 0;
-        transform: translateY(-100px);
+        transform: translateY(-100px) scale(0.8);
+    }
+}
+
+@keyframes float-up-combo {
+    0% {
+        opacity: 1;
+        transform: translateY(0px) scale(1) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-50px) scale(1.2) rotate(5deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-120px) scale(0.8) rotate(-5deg);
+    }
+}
+
+@keyframes float-up-combo-great {
+    0% {
+        opacity: 1;
+        transform: translateY(0px) scale(1) rotate(0deg);
+    }
+    25% {
+        transform: translateY(-30px) scale(1.3) rotate(10deg);
+    }
+    75% {
+        transform: translateY(-90px) scale(1.1) rotate(-10deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-140px) scale(0.7) rotate(0deg);
+    }
+}
+
+@keyframes float-up-combo-amazing {
+    0% {
+        opacity: 1;
+        transform: translateY(0px) scale(1) rotate(0deg);
+    }
+    20% {
+        transform: translateY(-40px) scale(1.5) rotate(15deg);
+    }
+    40% {
+        transform: translateY(-80px) scale(1.3) rotate(-15deg);
+    }
+    80% {
+        transform: translateY(-120px) scale(1.1) rotate(10deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-160px) scale(0.6) rotate(0deg);
     }
 }
 
