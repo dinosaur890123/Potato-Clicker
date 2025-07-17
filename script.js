@@ -42,8 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const upgrades = {
+        'betterFingers': { name: 'Better Fingers', description: 'Clicking power +1.', cost: 100, requirement: () => gameState.clicks >= 10, effect: () => gameState.clickPower += 1, type: 'click' },
         'reinforcedThumb': { name: 'Reinforced Thumb', description: 'Clicks are twice as effective.', cost: 500, requirement: () => gameState.clicks >= 100, effect: () => gameState.clickPower *= 2, type: 'click' },
         'potatoMouse': { name: 'Potato Mouse', description: 'Clicks also generate +1% of your total PPS.', cost: 10000, requirement: () => gameState.clicks >= 500, effect: () => {}, type: 'specialClick' }, // Special handling in click function
+        'sproutBooster': { name: 'Sprout Booster', description: 'Potato Sprouts are twice as effective.', cost: 1000, requirement: () => generators[0].owned >= 5, effect: () => {}, type: 'generator', generator: 'sprout' },
     };
 
     const prestigeUpgrades = {
@@ -106,27 +108,42 @@ document.addEventListener('DOMContentLoaded', () => {
         upgradesContainer.innerHTML = '';
         for (const id in upgrades) {
             const upgrade = upgrades[id];
-            if (upgrade.requirement && !upgrade.requirement()) {
-                continue; // Skip upgrades that don't meet requirements
+            
+            // Skip upgrades that are already purchased
+            if (gameState.purchasedUpgrades.has(id)) {
+                const elem = document.createElement('div');
+                elem.id = `upgrade-${id}`;
+                elem.className = 'upgrade purchased';
+                elem.innerHTML = `
+                    <h3>${upgrade.name}</h3>
+                    <p>${upgrade.description}</p>
+                    <p class="upgrade-cost">PURCHASED</p>
+                `;
+                upgradesContainer.appendChild(elem);
+                continue;
             }
             
-            const elem = document.createElement('div');
-            elem.id = `upgrade-${id}`;
-            elem.className = gameState.purchasedUpgrades.has(id) ? 'upgrade purchased' : 'upgrade';
-            elem.innerHTML = `
-                <h3>${upgrade.name}</h3>
-                <p>${upgrade.description}</p>
-                <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
-            `;
+            // Check if requirements are met
+            const requirementMet = !upgrade.requirement || upgrade.requirement();
             
-            if (!gameState.purchasedUpgrades.has(id)) {
+            // Only show upgrades if requirements are met
+            if (requirementMet) {
+                const elem = document.createElement('div');
+                elem.id = `upgrade-${id}`;
+                elem.className = 'upgrade';
+                elem.innerHTML = `
+                    <h3>${upgrade.name}</h3>
+                    <p>${upgrade.description}</p>
+                    <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
+                `;
+                
                 elem.addEventListener('click', () => buyUpgrade(id));
                 if (gameState.potatoes < upgrade.cost) {
                     elem.classList.add('disabled');
                 }
+                
+                upgradesContainer.appendChild(elem);
             }
-            
-            upgradesContainer.appendChild(elem);
         }
     }
 
