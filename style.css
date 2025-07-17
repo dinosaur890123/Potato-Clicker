@@ -271,3 +271,146 @@ button:disabled {
 .attribution a:hover {
     text-decoration: underline;
 }
+
+/* Golden Potato Styles */
+#golden-potato-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000; /* On top of everything */
+    pointer-events: none; /* Don't block other interactions */
+    overflow: hidden;
+}
+
+.golden-potato {
+    position: absolute;
+    width: 80px; /* Smaller than the main potato */
+    height: auto;
+    background-image: url('potato.svg');
+    background-size: contain;
+    filter: grayscale(100%) brightness(2.5) sepia(100%) hue-rotate(-50deg) saturate(5);
+    cursor: pointer;
+    pointer-events: all; /* It can be clicked */
+    animation: shimmer 2s infinite, float-in 0.5s ease-out;
+    border-radius: 50%;
+    box-shadow: 0 0 25px 10px #ffc400;
+}
+
+@keyframes shimmer {
+    0%, 100% { filter: grayscale(100%) brightness(2.5) sepia(100%) hue-rotate(-50deg) saturate(5); }
+    50% { filter: grayscale(100%) brightness(3.5) sepia(100%) hue-rotate(-50deg) saturate(10); }
+}
+
+@keyframes float-in {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* Buff Display */
+#buff-display {
+    margin-top: 15px;
+    padding: 10px;
+    min-height: 50px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.buff {
+    font-size: 1.1em;
+    color: #ffc400;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* Achievements Grid */
+#achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px; /* For scrollbar */
+}
+
+.achievement-tile {
+    width: 70px;
+    height: 70px;
+    border: 2px solid #7a604d;
+    border-radius: 8px;
+    position: relative;
+    cursor: help;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2em;
+}
+
+.achievement-tile.locked {
+    background-color: #4a3c30;
+    color: #6d5646;
+}
+
+.achievement-tile.unlocked {
+    background-color: #8a6d5a;
+    background-image: url('potato.svg');
+    background-size: 60%;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.achievement-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #2e241d;
+    color: #fdfdfd;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #7a604d;
+    z-index: 3000;
+    width: 200px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.achievement-tooltip h4 {
+    margin: 0 0 5px 0;
+    color: #ffc400;
+}
+
+.achievement-tooltip p {
+    margin: 0;
+    font-size: 0.9em;
+}
+
+.achievement-tile:hover .achievement-tooltip {
+    display: block;
+}
+
+/* Achievement Notification */
+#achievement-notification {
+    position: fixed;
+    bottom: 20px;
+    right: -400px; /* Start off-screen */
+    width: 350px;
+    background-color: #5c483a;
+    border: 2px solid #ffc400;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    transition: right 0.5s ease-in-out;
+    z-index: 4000;
+}
+
+#achievement-notification.show {
+    right: 20px;
+}
+
+#achievement-notification h3 {
+    margin: 0 0 10px 0;
+    color: #ffc400;
+}

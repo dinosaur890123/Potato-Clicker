@@ -13,10 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const potatoImg = document.getElementById('potato');
     const potatoTextOverlay = document.getElementById('potato-text-overlay');
     const generatorsContainer = document.getElementById('generators-container');
-    const upgradesContainer = document.getElementById('upgrades-container'); // Added for future use
+    const upgradesContainer = document.getElementById('upgrades-container');
     const clickUpgradeCostDisplay = document.getElementById('click-upgrade-cost');
     const buyClickUpgradeBtn = document.getElementById('buy-click-upgrade');
     const clickPowerDisplay = document.getElementById('click-power-display');
+
+    // Golden Potato & Buff Elements
+    const goldenPotatoContainer = document.getElementById('golden-potato-container');
+    const buffDisplay = document.getElementById('buff-display');
 
     // Settings Modal Elements
     const settingsBtn = document.getElementById('settings-btn');
@@ -40,16 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initialization ---
     function init() {
-        // Load game data first, which will set the state
-        loadGame(); 
-        // Then populate the UI with the loaded state
-        populateGenerators(); 
+        loadGame();
+        populateGenerators();
         addEventListeners();
-        // Recalculate PPS now that we have loaded data
-        recalculatePps(); 
-        // Start the loops
+        recalculatePps();
         setInterval(gameLoop, 1000);
         setInterval(saveGame, 30000);
+        setTimeout(trySpawnGoldenPotato, getRandomGoldenPotatoTime()); // Start the golden potato timer
     }
 
     function populateGenerators() {
@@ -120,7 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Loop & Updates ---
     function gameLoop() {
-        gameState.potatoes += gameState.totalPps;
+        let ppsThisSecond = gameState.totalPps;
+
+        // Apply buffs
+        if (gameState.buffs.fryFrenzy) {
+            ppsThisSecond *= 777;
+        }
+
+        gameState.potatoes += ppsThisSecond;
         updateDisplay();
     }
 
@@ -146,7 +154,102 @@ document.addEventListener('DOMContentLoaded', () => {
                 genElement.classList.toggle('disabled', gameState.potatoes < cost);
             }
         });
+
+        // Update buff display
+        updateBuffDisplay();
     }
+
+    // --- Golden Potato Logic ---
+    function trySpawnGoldenPotato() {
+        // If a golden potato already exists, don't spawn another
+        if (goldenPotatoContainer.hasChildNodes()) {
+            // Reset timer and try again later
+            setTimeout(trySpawnGoldenPotato, getRandomGoldenPotatoTime());
+            return;
+        }
+
+        const goldenPotato = document.createElement('div');
+        goldenPotato.className = 'golden-potato';
+
+        // Random position within the game container
+        const gameRect = document.getElementById('game-container').getBoundingClientRect();
+        const x = Math.random() * (gameRect.width - 100); // -100 to keep it from spawning off-edge
+        const y = Math.random() * (gameRect.height - 100);
+        goldenPotato.style.left = `${x}px`;
+        goldenPotato.style.top = `${y}px`;
+
+        goldenPotato.addEventListener('click', handleGoldenPotatoClick);
+        goldenPotatoContainer.appendChild(goldenPotato);
+
+        // Despawn after a certain time
+        setTimeout(() => {
+            goldenPotato.remove();
+            // After it despawns (or is clicked), set a timer for the next one
+            setTimeout(trySpawnGoldenPotato, getRandomGoldenPotatoTime());
+        }, 10000); // Golden potato lasts for 10 seconds
+    }
+
+    function handleGoldenPotatoClick(event) {
+        const potato = event.target;
+        potato.remove(); // Remove it immediately
+
+        // Give a random reward
+        const roll = Math.random();
+        if (roll < 0.9) { // 90% chance for Fry Frenzy
+            activateBuff('fryFrenzy', 77);
+        } else { // 10% chance for a lump sum
+            const lumpSum = (gameState.totalPps * 60 * 15) + 13; // 15 mins of production + 13
+            gameState.potatoes += lumpSum;
+            createFloatingText(event.clientX, event.clientY, `+${formatNumber(lumpSum)}!`);
+        }
+
+        // Don't reset the main timer here, let the despawn timer handle it
+    }
+
+    function getRandomGoldenPotatoTime() {
+        // Returns a random time between 5 and 15 minutes in milliseconds
+        return (Math.random() * 600000) + 300000;
+    }
+
+    // --- Buff Logic ---
+    function activateBuff(buffName, durationSeconds) {
+        gameState.buffs = gameState.buffs || {};
+        
+        // If buff is already active, just reset its timer
+        if (gameState.buffs[buffName]) {
+            clearTimeout(gameState.buffs[buffName].timerId);
+        }
+
+        gameState.buffs[buffName] = {
+            endTime: Date.now() + durationSeconds * 1000,
+            timerId: setTimeout(() => {
+                delete gameState.buffs[buffName];
+                updateBuffDisplay();
+            }, durationSeconds * 1000)
+        };
+        updateBuffDisplay();
+    }
+
+    function updateBuffDisplay() {
+        buffDisplay.innerHTML = '';
+        if (!gameState.buffs) return;
+
+        for (const buffName in gameState.buffs) {
+            const buff = gameState.buffs[buffName];
+            const timeLeft = Math.ceil((buff.endTime - Date.now()) / 1000);
+            if (timeLeft > 0) {
+                const buffElem = document.createElement('div');
+                buffElem.className = 'buff';
+                let buffText = '';
+                if (buffName === 'fryFrenzy') {
+                    buffText = `Fry Frenzy! (777x PPS) - ${timeLeft}s`;
+                }
+                buffElem.textContent = buffText;
+                buffDisplay.appendChild(buffElem);
+            }
+        }
+    }
+
 
     // --- Save/Load Logic ---
     function saveGame() {
@@ -164,8 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedState) {
             const parsedState = JSON.parse(savedState);
             
-            // Load core game state
+            // Load core game state, ensuring buffs object exists
             gameState = parsedState.gameState;
+            if (!gameState.buffs) {
+                gameState.buffs = {};
+            }
 
             // Load generator ownership
             parsedState.generators.forEach(savedGen => {
@@ -178,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Recalculate PPS from the loaded generator counts BEFORE calculating offline gains
             recalculatePps();
 
-            // Calculate offline progress
+            // Do not award offline progress for active buffs
             const timeOffline = Date.now() - parsedState.lastSaveTimestamp;
             const secondsOffline = Math.floor(timeOffline / 1000);
             if (secondsOffline > 0) {
