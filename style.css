@@ -76,6 +76,17 @@ h1, h2 {
     transform: scale(0.95);
 }
 
+/* Potato shake animation */
+#potato.shake {
+    animation: shake 0.2s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-2deg); }
+    75% { transform: scale(1.1) rotate(2deg); }
+}
+
 #potato-text-overlay {
     position: absolute;
     top: 0;
@@ -89,10 +100,11 @@ h1, h2 {
     position: absolute;
     font-size: 24px;
     font-weight: bold;
-    color: white;
-    text-shadow: 1px 1px 2px black;
+    color: #ffc400;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     animation: float-up 1.5s ease-out forwards;
     user-select: none;
+    z-index: 1000;
 }
 
 @keyframes float-up {
@@ -616,4 +628,40 @@ button:disabled {
 .achievement-name {
     font-size: 1.1em;
     font-weight: 600;
+}
+
+/* Random Event Notification */
+.random-event-notification {
+    position: fixed;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #8a6d5a, #a8856f);
+    color: #fff;
+    padding: 20px 30px;
+    border-radius: 15px;
+    box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+    z-index: 10000;
+    text-align: center;
+    min-width: 300px;
+    transition: top 0.5s ease-out, opacity 0.5s ease-out;
+    opacity: 0;
+    border: 3px solid #ffc400;
+}
+
+.random-event-notification.show {
+    top: 20px;
+    opacity: 1;
+}
+
+.event-title {
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.event-description {
+    font-size: 1.1em;
+    color: #ffdf80;
 }

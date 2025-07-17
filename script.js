@@ -29,6 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
         starch: 0,
         totalStarch: 0, // Starch if we reset now
         purchasedPrestigeUpgrades: new Set(),
+        // Fun features
+        clickCombo: 0,
+        lastClickTime: 0,
+        totalPlayTime: 0,
+        gameStartTime: Date.now(),
+        randomEventCooldown: 0,
     };
 
     // --- Definitions ---
@@ -39,6 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
         'hundredClicks': { name: 'Click Happy', description: 'Click the potato 100 times.', condition: () => gameState.clicks >= 100, reward: 'You\'re getting the hang of this!', icon: '💪' },
         'firstGenerator': { name: 'Growing Garden', description: 'Buy your first Potato Sprout.', condition: () => generators[0].owned >= 1, reward: 'Your first step into automation!', icon: '🌱' },
         'tenThousandPotatoes': { name: 'Spud Central', description: 'Accumulate 10,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 10000, reward: 'A significant potato milestone!', icon: '🥔' },
+        'clickMaster': { name: 'Click Master', description: 'Click 1,000 times.', condition: () => gameState.clicks >= 1000, reward: 'Your fingers are getting strong!', icon: '⚡' },
+        'speedDemon': { name: 'Speed Demon', description: 'Achieve a 10-click combo.', condition: () => false, reward: 'Lightning fast clicking!', icon: '💨' }, // Manual trigger
+        'millionaire': { name: 'Potato Millionaire', description: 'Accumulate 1,000,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 1000000, reward: 'You\'re rich in potatoes!', icon: '💰' },
+        'dedicated': { name: 'Dedicated Farmer', description: 'Play for 1 hour total.', condition: () => gameState.totalPlayTime >= 3600000, reward: 'True dedication to potato farming!', icon: '⏰' },
+        'autoClicker': { name: 'Automation Nation', description: 'Generate 100 PPS.', condition: () => gameState.totalPps >= 100, reward: 'The machines work for you now!', icon: '🤖' },
+        'overachiever': { name: 'Overachiever', description: 'Unlock 5 other achievements.', condition: () => gameState.unlockedAchievements.size >= 5, reward: 'You love collecting achievements!', icon: '🏆' },
     };
 
     const upgrades = {
@@ -272,13 +284,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handlePotatoClick(event) {
         gameState.clicks++;
+        
+        // Combo system
+        const now = Date.now();
+        if (now - gameState.lastClickTime < 500) { // Within 500ms for combo
+            gameState.clickCombo++;
+            if (gameState.clickCombo >= 10 && !gameState.unlockedAchievements.has('speedDemon')) {
+                gameState.unlockedAchievements.add('speedDemon');
+                showAchievementNotification('Speed Demon');
+                populateAchievementsGrid();
+            }
+        } else {
+            gameState.clickCombo = 1;
+        }
+        gameState.lastClickTime = now;
+        
+        // Calculate click value with combo bonus
         let clickValue = gameState.clickPower;
         if (gameState.purchasedUpgrades.has('potatoMouse')) {
             clickValue += gameState.totalPps * 0.01;
         }
+        
+        // Combo multiplier (caps at 3x)
+        const comboMultiplier = Math.min(1 + (gameState.clickCombo - 1) * 0.1, 3);
+        clickValue *= comboMultiplier;
+        
         gameState.potatoes += clickValue;
         gameState.totalPotatoesEarned += clickValue;
-        createFloatingText(event.clientX, event.clientY, `+${clickValue}`);
+        
+        // Simple floating text without combo display
+        createFloatingText(event.clientX, event.clientY, `+${formatNumber(clickValue)}`);
+        
+        // Potato shake animation
+        potatoImg.classList.add('shake');
+        setTimeout(() => potatoImg.classList.remove('shake'), 200);
+        
         updateDisplay();
     }
 
@@ -307,18 +347,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Loop & Updates ---
     function gameLoop() {
+        // Update play time
+        gameState.totalPlayTime = Date.now() - gameState.gameStartTime;
+        
         let ppsThisSecond = gameState.totalPps;
 
         // Apply buffs
         if (gameState.buffs.fryFrenzy) {
             ppsThisSecond *= 777;
         }
+        if (gameState.buffs.goldenRush) {
+            ppsThisSecond *= 5;
+        }
+        if (gameState.buffs.potatoBoost) {
+            ppsThisSecond *= 2;
+        }
 
         gameState.potatoes += ppsThisSecond;
         gameState.totalPotatoesEarned += ppsThisSecond;
+        
+        // Random events
+        tryRandomEvent();
+        
         updateDisplay();
         checkAchievements();
         checkPrestige();
+    }
+
+    function tryRandomEvent() {
+        if (gameState.randomEventCooldown > 0) {
+            gameState.randomEventCooldown--;
+            return;
+        }
+        
+        // 0.1% chance per second for a random event
+        if (Math.random() < 0.001) {
+            const events = [
+                { name: 'Potato Rain', effect: () => {
+                    const bonus = gameState.totalPps * 30;
+                    gameState.potatoes += bonus;
+                    showRandomEventNotification('🌧️ Potato Rain!', `+${formatNumber(bonus)} potatoes!`);
+                }},
+                { name: 'Golden Rush', effect: () => {
+                    activateBuff('goldenRush', 30);
+                    showRandomEventNotification('✨ Golden Rush!', '5x production for 30 seconds!');
+                }},
+                { name: 'Potato Boost', effect: () => {
+                    activateBuff('potatoBoost', 60);
+                    showRandomEventNotification('🚀 Potato Boost!', '2x production for 60 seconds!');
+                }},
+            ];
+            
+            const event = events[Math.floor(Math.random() * events.length)];
+            event.effect();
+            gameState.randomEventCooldown = 300; // 5 minutes cooldown
+        }
+    }
+
+    function showRandomEventNotification(title, description) {
+        const notification = document.createElement('div');
+        notification.className = 'random-event-notification';
+        notification.innerHTML = `
+            <div class="event-title">${title}</div>
+            <div class="event-description">${description}</div>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 100);
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 500);
+        }, 4000);
     }
 
     function updateDisplay() {
@@ -678,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elem.className = 'floating-text';
         
         // To avoid showing "+1.00" for small numbers, format it cleanly.
-        const num = parseFloat((text || '').toString().replace('+', ''));
+        const num = parseFloat((text || '').toString().replace(/[+,]/g, ''));
         if (!isNaN(num)) {
             if (num < 10) {
                 elem.textContent = `+${num.toFixed(2)}`;
