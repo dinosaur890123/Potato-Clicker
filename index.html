@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Potato Clicker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="left-column">
+            <h1>Potato Clicker</h1>
+            <div id="potato-container">
+                <img src="potato.svg" id="potato" alt="A glorious potato">
+                <div id="potato-text-overlay"></div>
+            </div>
+            <div id="stats">
+                <p>Potatoes: <span id="potatoes">0</span></p>
+                <p>Potatoes per second: <span id="pps">0</span></p>
+            </div>
+            <div id="settings-button-container">
+                <button id="settings-btn">Settings</button>
+            </div>
+        </div>
+
+        <div id="middle-column" class="column">
+            <h2>Generators</h2>
+            <div id="generators-container">
+            </div>
+        </div>
+
+        <div id="right-column" class="column">
+            <h2>Upgrades</h2>
+            <div id="upgrades-container">
+                 <div class="upgrade" id="click-upgrade">
+                    <h3>Better Clicks</h3>
+                    <p>Increases potatoes per click by 1.</p>
+                    <p>Cost: <span id="click-upgrade-cost">10</span> potatoes</p>
+                    <p>Power: <span id="click-power-display">1</span></p>
+                    <button id="buy-click-upgrade">Buy</button>
+                </div>
+              
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>Settings</h2>
+            <p>Game data is saved to your browser automatically.</p>
+            <div class="modal-buttons">
+                <button id="manual-save-btn">Save Manually</button>
+                <button id="wipe-save-btn" class="danger">Wipe Save</button>
+            </div>
+            <div class="attribution">
+                <p><a href="https://iconscout.com/icons/potato" target="_blank">Potato</a> by <a href="https://iconscout.com/contributors/fluent-emoji" target="_blank">Fluent Emoji &lt;&gt; Microsoft</a> on <a href="https://iconscout.com" target="_blank">IconScout</a></p>
+            </div>
+            <button class="close-btn">&times;</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

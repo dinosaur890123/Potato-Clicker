@@ -1,0 +1,273 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #3a2e25; /* Dark soil brown */
+    color: #fdfdfd;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden; /* Prevents scrollbars from popping up */
+}
+
+#game-container {
+    display: flex;
+    width: 95vw;
+    height: 95vh;
+    max-width: 1600px;
+    background-color: #5c483a; /* Lighter soil */
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 15px #2e241d;
+    border: 3px solid #7a604d;
+}
+
+#left-column {
+    flex-basis: 30%;
+    padding: 20px;
+    text-align: center;
+}
+
+.column {
+    flex-basis: 35%;
+    padding: 20px;
+    background-color: #4a3c30; /* Even darker soil for columns */
+    border-radius: 10px;
+    margin: 10px;
+    overflow-y: auto;
+    box-shadow: inset 0 0 10px #2e241d;
+}
+
+/* Custom scrollbar for columns */
+.column::-webkit-scrollbar {
+    width: 8px;
+}
+.column::-webkit-scrollbar-track {
+    background: #4a3c30;
+    border-radius: 10px;
+}
+.column::-webkit-scrollbar-thumb {
+    background: #8a6d5a;
+    border-radius: 10px;
+}
+.column::-webkit-scrollbar-thumb:hover {
+    background: #a8856f;
+}
+
+
+h1, h2 {
+    color: #ffc400; /* Golden potato color */
+    text-shadow: 2px 2px 3px #000;
+}
+
+#potato-container {
+    position: relative; /* Needed for text overlay */
+    margin-bottom: 20px;
+    user-select: none; /* Prevents image dragging */
+}
+
+#potato {
+    width: 250px;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+    filter: drop-shadow(0 0 15px #ffc400a0);
+}
+
+#potato:active {
+    transform: scale(0.95);
+}
+
+#potato-text-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Clicks go through to the potato */
+}
+
+.floating-text {
+    position: absolute;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+    animation: float-up 1.5s ease-out forwards;
+    user-select: none;
+}
+
+@keyframes float-up {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-100px);
+    }
+}
+
+
+#stats {
+    margin-bottom: 20px;
+    font-size: 1.2em;
+}
+
+#generators-container, #upgrades-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.generator, .upgrade {
+    background-color: #5c483a;
+    border: 2px solid #7a604d;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.generator.disabled, .upgrade.disabled {
+    background-color: #47392e;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.generator:not(.disabled):hover, .upgrade:not(.disabled):hover {
+    background-color: #6d5646;
+}
+
+.generator-info, .upgrade-info {
+    flex-grow: 1;
+}
+
+.generator-info h3, .upgrade-info h3 {
+    margin: 0 0 5px 0;
+    color: #ffdf80;
+}
+
+.generator-info p, .upgrade-info p {
+    margin: 0;
+    font-size: 0.9em;
+}
+
+.generator-details, .upgrade-details {
+    text-align: right;
+}
+
+.generator-owned, .upgrade-power {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.cost {
+    font-size: 1.1em;
+    color: #aaffaa; /* Light green for cost */
+}
+
+button {
+    background-color: #8a6d5a;
+    color: white;
+    border: 2px solid #a8856f;
+    padding: 10px 15px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+    background-color: #a8856f;
+}
+
+button:disabled {
+    background-color: #555;
+    color: #888;
+    cursor: not-allowed;
+    border-color: #666;
+}
+
+/* Settings Button */
+#settings-button-container {
+    margin-top: auto; /* Pushes the button to the bottom */
+    padding-top: 20px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: #5c483a;
+    padding: 30px;
+    border-radius: 15px;
+    border: 3px solid #7a604d;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+    text-align: center;
+    position: relative;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #fdfdfd;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.danger {
+    background-color: #c0392b;
+    border-color: #e74c3c;
+}
+
+.danger:hover {
+    background-color: #e74c3c;
+}
+
+.attribution {
+    margin-top: 20px;
+    font-size: 0.8em;
+    color: #ccc;
+}
+
+.attribution a {
+    color: #ffc400;
+    text-decoration: none;
+}
+
+.attribution a:hover {
+    text-decoration: underline;
+}
