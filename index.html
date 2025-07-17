@@ -18,6 +18,7 @@
             <div id="stats">
                 <p>Potatoes: <span id="potatoes">0</span></p>
                 <p>Potatoes per second: <span id="pps">0</span></p>
+                <p>✨ Starch: <span id="starch">0</span></p>
             </div>
             <div id="buff-display"></div>
             <div id="settings-button-container">
@@ -27,15 +28,36 @@
         </div>
 
         <div id="middle-column" class="column">
-            <h2>Generators</h2>
-            <div id="generators-container">
+            <div class="tabs">
+                <button class="tab-link active" data-tab="generators-tab">Generators</button>
+                <button class="tab-link" data-tab="prestige-tab" id="prestige-tab-button" style="display: none;">Prestige</button>
+            </div>
+
+            <div id="generators-tab" class="tab-content active">
+                <div id="generators-container">
+                    <!-- Generators will be dynamically added here by script.js -->
+                </div>
+            </div>
+
+            <div id="prestige-tab" class="tab-content">
+                <h2>The Mashing</h2>
+                <p>Reset your game to earn Starch (✨) and unlock powerful permanent upgrades.</p>
+                <div id="prestige-info">
+                    <p>Mash now to gain: <span id="prestige-gain">0</span> ✨</p>
+                </div>
+                <button id="prestige-reset-button" class="danger">Mash 'em!</button>
+                <hr>
+                <h3>Starch Upgrades</h3>
+                <div id="prestige-upgrades-container">
+                    <!-- Prestige upgrades will be dynamically added here -->
+                </div>
             </div>
         </div>
 
         <div id="right-column" class="column">
             <h2>Upgrades</h2>
             <div id="upgrades-container">
-                 <!-- All upgrades will be dynamically added here by script.js -->
+
             </div>
         </div>
     </div>

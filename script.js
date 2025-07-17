@@ -2,34 +2,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Game State
     let gameState = {
         potatoes: 0,
+        totalPotatoesEarned: 0,
+        clicks: 0,
         totalPps: 0,
         clickPower: 1,
         clickUpgradeCost: 10,
+        buffs: {},
+        unlockedAchievements: new Set(),
+        purchasedUpgrades: new Set(),
+        // Prestige
+        starch: 0,
+        totalStarch: 0, // Starch if we reset now
+        purchasedPrestigeUpgrades: new Set(),
     };
 
-    // DOM Elements
-    const potatoDisplay = document.getElementById('potatoes');
-    const ppsDisplay = document.getElementById('pps');
-    const potatoImg = document.getElementById('potato');
-    const potatoTextOverlay = document.getElementById('potato-text-overlay');
-    const generatorsContainer = document.getElementById('generators-container');
-    const upgradesContainer = document.getElementById('upgrades-container');
-    const clickUpgradeCostDisplay = document.getElementById('click-upgrade-cost');
-    const buyClickUpgradeBtn = document.getElementById('buy-click-upgrade');
-    const clickPowerDisplay = document.getElementById('click-power-display');
+    // --- Definitions ---
+    const achievements = {
+        'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => gameState.unlockedAchievements.has('goldenTouch') }, // Special case
+        'firstMash': { name: 'Spudtastic Voyage', description: 'Reset for the first time.', condition: () => gameState.totalStarch > 0 },
+    };
 
-    // Golden Potato & Buff Elements
-    const goldenPotatoContainer = document.getElementById('golden-potato-container');
-    const buffDisplay = document.getElementById('buff-display');
+    const upgrades = {
+        'reinforcedThumb': { name: 'Reinforced Thumb', description: 'Clicks are twice as effective.', cost: 500, requirement: () => gameState.clicks >= 100, effect: () => gameState.clickPower *= 2, type: 'click' },
+        'potatoMouse': { name: 'Potato Mouse', description: 'Clicks also generate +1% of your total PPS.', cost: 10000, requirement: () => gameState.clicks >= 500, effect: () => {}, type: 'specialClick' }, // Special handling in click function
+    };
 
-    // Settings Modal Elements
-    const settingsBtn = document.getElementById('settings-btn');
-    const settingsModal = document.getElementById('settings-modal');
-    const closeModalBtn = settingsModal.querySelector('.close-btn');
-    const manualSaveBtn = document.getElementById('manual-save-btn');
-    const wipeSaveBtn = document.getElementById('wipe-save-btn');
-
-    // Generator Definitions from GDD
+    const prestigeUpgrades = {
+        'starchyStart': { name: 'Starchy Start', description: 'Begin every new game with 10 Tater Tot Farmers.', cost: 1, effect: () => {} },
+        'cosmicSeasoning': { name: 'Cosmic Seasoning', description: 'All potato production is permanently increased by 10%.', cost: 5, effect: () => {} },
+        'eyeForAnEye': { name: 'Eye for an Eye', description: 'Golden Potatoes are twice as likely to appear.', cost: 25, effect: () => {} },
+    };
     let generators = [
         { id: 'sprout', name: 'Potato Sprout', description: "A tiny, hopeful green shoot.", baseCost: 15, basePps: 1, owned: 0 },
         { id: 'farmer', name: 'Tater Tot Farmer', description: "A stout, grumpy-looking potato person.", baseCost: 100, basePps: 8, owned: 0 },
@@ -46,11 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadGame();
         populateGenerators();
+        populateUpgrades();
+        populatePrestigeUpgrades();
+        populateAchievementsGrid();
         addEventListeners();
         recalculatePps();
         setInterval(gameLoop, 1000);
         setInterval(saveGame, 30000);
-        setTimeout(trySpawnGoldenPotato, getRandomGoldenPotatoTime()); // Start the golden potato timer
+        setTimeout(trySpawnGoldenPotato, getRandomGoldenPotatoTime());
     }
 
     function populateGenerators() {
@@ -78,6 +83,28 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDisplay();
     }
 
+    function populatePrestigeUpgrades() {
+        const container = document.getElementById('prestige-upgrades-container');
+        container.innerHTML = '';
+        for (const id in prestigeUpgrades) {
+            const upgrade = prestigeUpgrades[id];
+            const elem = document.createElement('div');
+            elem.id = `prestige-${id}`;
+            elem.className = 'prestige-upgrade';
+            elem.innerHTML = `
+                <h3>${upgrade.name}</h3>
+                <p>${upgrade.description}</p>
+                <p class="prestige-upgrade-cost">Cost: ${upgrade.cost} ✨</p>
+            `;
+            if (gameState.purchasedPrestigeUpgrades.has(id)) {
+                elem.classList.add('purchased');
+            } else {
+                elem.addEventListener('click', () => buyPrestigeUpgrade(id));
+            }
+            container.appendChild(elem);
+        }
+    }
+
     // --- Event Listeners ---
     function addEventListeners() {
         potatoImg.addEventListener('click', handlePotatoClick);
@@ -91,11 +118,37 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("Game Saved!");
         });
         wipeSaveBtn.addEventListener('click', wipeSave);
+
+        // Achievements modal
+        document.getElementById('achievements-btn').addEventListener('click', () => {
+            document.getElementById('achievements-modal').style.display = 'flex';
+        });
+        const closeAchievementsModalBtn = document.getElementById('achievements-modal').querySelector('.close-btn');
+        closeAchievementsModalBtn.addEventListener('click', () => achievementsModal.style.display = 'none');
+
+        // Tab listeners
+        document.querySelectorAll('.tab-link').forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.tab-link').forEach(link => link.classList.remove('active'));
+                document.getElementById(tabId).classList.add('active');
+                button.classList.add('active');
+            });
+        });
+
+        // Prestige listener
+        document.getElementById('prestige-reset-button').addEventListener('click', performPrestigeReset);
     }
 
     function handlePotatoClick(event) {
-        gameState.potatoes += gameState.clickPower;
-        createFloatingText(event.clientX, event.clientY, `+${gameState.clickPower}`);
+        let clickValue = gameState.clickPower;
+        if (gameState.purchasedUpgrades.has('potatoMouse')) {
+            clickValue += gameState.totalPps * 0.01;
+        }
+        gameState.potatoes += clickValue;
+        gameState.totalPotatoesEarned += clickValue;
+        createFloatingText(event.clientX, event.clientY, `+${clickValue}`);
         updateDisplay();
     }
 
@@ -119,6 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function buyUpgrade(id) {
+        const upgrade = upgrades[id];
+        if (gameState.potatoes >= upgrade.cost && !gameState.purchasedUpgrades.has(id)) {
+            gameState.potatoes -= upgrade.cost;
+            gameState.purchasedUpgrades.add(id);
+            upgrade.effect();
+            recalculatePps();
+            populateUpgrades(); // Refresh the upgrade list
+            updateDisplay();
+        }
+    }
+
     // --- Game Loop & Updates ---
     function gameLoop() {
         let ppsThisSecond = gameState.totalPps;
@@ -129,20 +194,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         gameState.potatoes += ppsThisSecond;
+        gameState.totalPotatoesEarned += ppsThisSecond;
         updateDisplay();
+        checkAchievements();
+        checkPrestige();
     }
 
     function updateDisplay() {
         // Update main stats
         potatoDisplay.textContent = formatNumber(Math.floor(gameState.potatoes));
         ppsDisplay.textContent = formatNumber(gameState.totalPps);
+        document.getElementById('starch').textContent = formatNumber(gameState.starch);
 
-        // Update click upgrade
-        clickUpgradeCostDisplay.textContent = formatNumber(gameState.clickUpgradeCost);
-        clickPowerDisplay.textContent = formatNumber(gameState.clickPower);
-        buyClickUpgradeBtn.disabled = gameState.potatoes < gameState.clickUpgradeCost;
-        document.getElementById('click-upgrade').classList.toggle('disabled', gameState.potatoes < gameState.clickUpgradeCost);
-
+        // Update click upgrade (if it's being displayed)
+        const clickUpgradeElement = document.getElementById('click-upgrade');
+        if (clickUpgradeElement) {
+            clickUpgradeElement.querySelector('.cost').textContent = formatNumber(gameState.clickUpgradeCost);
+            clickUpgradeElement.querySelector('.click-power').textContent = formatNumber(gameState.clickPower);
+            buyClickUpgradeBtn.disabled = gameState.potatoes < gameState.clickUpgradeCost;
+            clickUpgradeElement.classList.toggle('disabled', gameState.potatoes < clickUpgrade.cost);
+        }
 
         // Update generators
         generators.forEach(gen => {
@@ -157,6 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update buff display
         updateBuffDisplay();
+
+        // Update prestige info
+        const prestigeGain = calculatePrestigeGain();
+        document.getElementById('prestige-gain').textContent = formatNumber(prestigeGain);
+        document.getElementById('prestige-reset-button').disabled = prestigeGain === 0;
     }
 
     // --- Golden Potato Logic ---
@@ -207,8 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getRandomGoldenPotatoTime() {
-        // Returns a random time between 5 and 15 minutes in milliseconds
-        return (Math.random() * 600000) + 300000;
+        let time = (Math.random() * 600000) + 300000;
+        if (gameState.purchasedPrestigeUpgrades.has('eyeForAnEye')) {
+            time /= 2;
+        }
+        return time;
     }
 
     // --- Buff Logic ---
@@ -251,10 +330,98 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // --- Prestige Logic ---
+    function checkPrestige() {
+        const prestigeGain = calculatePrestigeGain();
+        if (prestigeGain > 0) {
+            document.getElementById('prestige-tab-button').style.display = 'block';
+        }
+    }
+
+    function calculatePrestigeGain() {
+        // Using the formula from Cookie Clicker: cube root of (total potatoes / 1 trillion)
+        const gain = Math.floor(Math.cbrt(gameState.totalPotatoesEarned / 1e12));
+        return gain;
+    }
+
+    function buyPrestigeUpgrade(id) {
+        const upgrade = prestigeUpgrades[id];
+        if (gameState.starch >= upgrade.cost && !gameState.purchasedPrestigeUpgrades.has(id)) {
+            gameState.starch -= upgrade.cost;
+            gameState.purchasedPrestigeUpgrades.add(id);
+            populatePrestigeUpgrades(); // Refresh display
+            updateDisplay();
+        }
+    }
+
+    function performPrestigeReset() {
+        const gain = calculatePrestigeGain();
+        if (gain <= 0) return;
+
+        if (confirm(`Are you sure you want to Mash? You will gain ${formatNumber(gain)} Starch (✨) but your potatoes, generators, and upgrades will be reset.`)) {
+            const newStarch = gameState.starch + gain;
+            const newTotalStarch = gameState.totalStarch + gain;
+            const prestigeUpgrades = new Set(gameState.purchasedPrestigeUpgrades);
+            const achievements = new Set(gameState.unlockedAchievements);
+
+            // Reset the game state, but keep prestige-related things
+            gameState = {
+                potatoes: 0,
+                totalPotatoesEarned: 0,
+                clicks: 0,
+                totalPps: 0,
+                clickPower: 1,
+                clickUpgradeCost: 10,
+                buffs: {},
+                unlockedAchievements: achievements,
+                purchasedUpgrades: new Set(),
+                starch: newStarch,
+                totalStarch: newTotalStarch,
+                purchasedPrestigeUpgrades: prestigeUpgrades,
+            };
+
+            // Reset generators
+            generators.forEach(g => g.owned = 0);
+
+            // Apply prestige effects
+            if (gameState.purchasedPrestigeUpgrades.has('starchyStart')) {
+                generators.find(g => g.id === 'farmer').owned = 10;
+            }
+
+            recalculatePps();
+            populateGenerators();
+            populateUpgrades();
+            updateDisplay();
+            document.getElementById('prestige-tab-button').style.display = 'none';
+        }
+    }
+
+
+    // --- Achievement Logic ---
+    function checkAchievements() {
+        for (const [id, ach] of Object.entries(achievements)) {
+            if (!gameState.unlockedAchievements.has(id) && ach.condition()) {
+                gameState.unlockedAchievements.add(id);
+                alert(`Achievement Unlocked: ${ach.name}`);
+            }
+        }
+    }
+
+
     // --- Save/Load Logic ---
     function saveGame() {
+        // Convert Sets to Arrays for JSON serialization
+        const achievementArray = Array.from(gameState.unlockedAchievements);
+        const upgradesArray = Array.from(gameState.purchasedUpgrades);
+        const prestigeUpgradesArray = Array.from(gameState.purchasedPrestigeUpgrades);
+
         const saveState = {
-            gameState: gameState,
+            gameState: { 
+                ...gameState, 
+                unlockedAchievements: achievementArray,
+                purchasedUpgrades: upgradesArray,
+                purchasedPrestigeUpgrades: prestigeUpgradesArray,
+            },
             generators: generators.map(g => ({ id: g.id, owned: g.owned })),
             lastSaveTimestamp: Date.now()
         };
@@ -267,11 +434,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedState) {
             const parsedState = JSON.parse(savedState);
             
-            // Load core game state, ensuring buffs object exists
+            // Load core game state
             gameState = parsedState.gameState;
-            if (!gameState.buffs) {
-                gameState.buffs = {};
-            }
+            // Convert loaded arrays back to Sets
+            gameState.unlockedAchievements = new Set(parsedState.gameState.unlockedAchievements);
+            gameState.purchasedUpgrades = new Set(parsedState.gameState.purchasedUpgrades);
+            gameState.purchasedPrestigeUpgrades = new Set(parsedState.gameState.purchasedPrestigeUpgrades || []); // Backwards compatibility
+            if (!gameState.buffs) gameState.buffs = {};
+            if (!gameState.totalPotatoesEarned) gameState.totalPotatoesEarned = gameState.potatoes;
+            if (!gameState.clicks) gameState.clicks = 0;
+            if (!gameState.starch) gameState.starch = 0;
+            if (!gameState.totalStarch) gameState.totalStarch = 0;
+
 
             // Load generator ownership
             parsedState.generators.forEach(savedGen => {
@@ -313,7 +487,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helper Functions ---
     function recalculatePps() {
-        gameState.totalPps = generators.reduce((total, gen) => total + (gen.owned * gen.basePps), 0);
+        let total = 0;
+        generators.forEach(gen => {
+            let pps = gen.basePps;
+            // Apply generator-specific upgrade multipliers
+            const genUpgrades = Object.values(upgrades).filter(upg => upg.type === 'generator' && upg.generator === gen.id);
+            genUpgrades.forEach(upg => {
+                if (gameState.purchasedUpgrades.has(upg.id)) {
+                    pps *= 2;
+                }
+            });
+            total += gen.owned * pps;
+        });
+
+        // Apply global prestige multiplier
+        if (gameState.purchasedPrestigeUpgrades.has('cosmicSeasoning')) {
+            total *= 1.10;
+        }
+
+        gameState.totalPps = total;
     }
 
     function calculateCost(gen) {

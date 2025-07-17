@@ -414,3 +414,70 @@ button:disabled {
     margin: 0 0 10px 0;
     color: #ffc400;
 }
+
+/* Tabs for Middle Column */
+.tabs {
+    display: flex;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #7a604d;
+}
+
+.tab-link {
+    padding: 10px 20px;
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    color: #c5a88d;
+    font-size: 1.1em;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-link.active {
+    color: #ffc400;
+    border-bottom: 3px solid #ffc400;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Prestige Styles */
+#prestige-tab {
+    text-align: center;
+}
+
+#prestige-info {
+    font-size: 1.2em;
+    margin: 20px 0;
+}
+
+#prestige-gain {
+    color: #ffc400;
+    font-weight: bold;
+}
+
+#prestige-upgrades-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.prestige-upgrade {
+    background-color: #4a3c30;
+    border: 2px solid #7a604d;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.prestige-upgrade.purchased {
+    border-color: #ffc400;
+}
+.prestige-upgrade.purchased .prestige-upgrade-cost {
+    color: #8a6d5a;
+}
