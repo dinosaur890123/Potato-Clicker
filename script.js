@@ -40,9 +40,49 @@ document.addEventListener('DOMContentLoaded', () => {
         gameStartTime: Date.now(),
         randomEventCooldown: 0,
         newsTickerMessages: [],
+        // Research
+        researchPoints: 0,
+        completedResearch: new Set(),
+        activeResearch: null, // { id: 'someId', startTime: timestamp }
     };
 
     // --- Definitions ---
+
+    const researchProjects = {
+        'advFertilizers': {
+            name: 'Advanced Fertilizers',
+            description: 'Potato Sprouts and Tater Tot Farmers are permanently 25% more effective.',
+            cost: 100,
+            duration: 60 * 5, // 5 minutes
+            requirement: () => true,
+            effect: () => {} // Applied in recalculatePps
+        },
+        'potatoPlastics': {
+            name: 'Potato-Based Plastics',
+            description: 'A global +10% production multiplier from this versatile new material.',
+            cost: 500,
+            duration: 60 * 20, // 20 minutes
+            requirement: () => gameState.completedResearch.has('advFertilizers'),
+            effect: () => {} // Applied in recalculatePps
+        },
+        'spudComputing': {
+            name: 'Spud-Powered Computing',
+            description: 'Clicks are 50% more effective.',
+            cost: 2500,
+            duration: 60 * 60, // 1 hour
+            requirement: () => gameState.completedResearch.has('potatoPlastics'),
+            effect: () => { gameState.clickPower *= 1.5; }
+        },
+        'gravitationalLensing': {
+            name: 'Gravitational Lensing',
+            description: 'Potato Planets and Potato-Verse Portals are 100% more effective.',
+            cost: 10000,
+            duration: 60 * 60 * 4, // 4 hours
+            requirement: () => gameState.completedResearch.has('spudComputing') && generators.find(g => g.id === 'planet').owned > 0,
+            effect: () => {} // Applied in recalculatePps
+        }
+    };
+
     const achievements = {
         'goldenTouch': { name: 'Golden Touch', description: 'Click a Golden Potato.', condition: () => false, reward: 'Unlocks the golden potato mechanic!', icon: '🥇' }, // Will be manually triggered
         'firstMash': { name: 'Spudtastic Voyage', description: 'Reset for the first time.', condition: () => gameState.totalStarch > 0, reward: 'Shows you understand the prestige system!', icon: '🚀' },
@@ -99,6 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'automatedInspection': { name: 'Automated Inspection', description: 'Automatically perform quality inspections every 10 seconds.', cost: 100000, requirement: () => gameState.qualityLevel >= 3, effect: () => {}, type: 'quality_auto' },
         'premiumPackaging': { name: 'Premium Packaging', description: 'Quality bonus doubled for all potatoes.', cost: 1000000, requirement: () => gameState.qualityLevel >= 5, effect: () => {}, type: 'quality_premium' },
         'perfectQuality': { name: 'Perfect Quality', description: 'Unlock Quality Level 10 and triple quality bonus.', cost: 50000000, requirement: () => gameState.qualityLevel >= 8, effect: () => {}, type: 'quality_perfect' },
+        'researchLab': {
+            name: 'Research Lab',
+            description: 'Unlocks the Research tab, allowing you to spend potatoes on powerful technologies.',
+            cost: 1000000,
+            requirement: () => gameState.totalPotatoesEarned >= 500000,
+            effect: () => {
+                document.getElementById('research-tab-button').style.display = 'block';
+            },
+            type: 'unlock'
+        },
     };
 
     const prestigeUpgrades = {
@@ -129,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         populateUpgrades();
         populatePrestigeUpgrades();
         populateAchievementsGrid();
+        populateResearch();
         addEventListeners();
         recalculatePps();
         setInterval(gameLoop, 1000);
@@ -212,7 +263,56 @@ document.addEventListener('DOMContentLoaded', () => {
             
             upgradesContainer.appendChild(elem);
         }
-    }    function populateAchievementsGrid() {
+    }    function populateResearch() {
+        const container = document.getElementById('research-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (const id in researchProjects) {
+            const project = researchProjects[id];
+            if (!project.requirement()) continue;
+
+            const elem = document.createElement('div');
+            elem.id = `research-${id}`;
+            elem.className = 'research-project';
+
+            if (gameState.completedResearch.has(id)) {
+                elem.classList.add('completed');
+                elem.innerHTML = `
+                    <h3>${project.name}</h3>
+                    <p>${project.description}</p>
+                    <div class="research-cost">COMPLETED</div>
+                `;
+            } else if (gameState.activeResearch && gameState.activeResearch.id === id) {
+                elem.classList.add('active');
+                const elapsed = (Date.now() - gameState.activeResearch.startTime) / 1000;
+                const progress = Math.min(100, (elapsed / project.duration) * 100);
+                elem.innerHTML = `
+                    <h3>${project.name} (Researching...)</h3>
+                    <p>${project.description}</p>
+                    <div class="research-progress-bar">
+                        <div class="research-progress" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="research-time-left">${formatNumber(Math.ceil(project.duration - elapsed))}s remaining</div>
+                `;
+            } else {
+                elem.innerHTML = `
+                    <h3>${project.name}</h3>
+                    <p>${project.description}</p>
+                    <div class="research-cost">Cost: ${formatNumber(project.cost)} 🔬</div>
+                    <div class="research-duration">Takes ${formatNumber(project.duration)}s</div>
+                `;
+                if (gameState.activeResearch || gameState.researchPoints < project.cost) {
+                    elem.classList.add('disabled');
+                } else {
+                    elem.addEventListener('click', () => startResearch(id));
+                }
+            }
+            container.appendChild(elem);
+        }
+    }
+
+    function populateAchievementsGrid() {
         const grid = document.getElementById('achievements-grid');
         if (!grid) return; // Exit if element doesn't exist
         
@@ -389,6 +489,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update play time
         gameState.totalPlayTime = Date.now() - gameState.gameStartTime;
         
+        // Generate research points
+        if (gameState.purchasedUpgrades.has('researchLab')) {
+            const pointsPerSecond = gameState.totalPps / 1e9; // 1 point per 1B PPS
+            gameState.researchPoints += pointsPerSecond;
+        }
+
+        // Check for research completion
+        if (gameState.activeResearch) {
+            const project = researchProjects[gameState.activeResearch.id];
+            const elapsed = (Date.now() - gameState.activeResearch.startTime) / 1000;
+            if (elapsed >= project.duration) {
+                completeResearch(gameState.activeResearch.id);
+            }
+        }
+
         let ppsThisSecond = gameState.totalPps;
 
         // Apply buffs
@@ -471,6 +586,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 notification.remove();
             }, 500);
         }, 4000);
+    }
+
+    // --- Research Logic ---
+    function startResearch(id) {
+        if (gameState.activeResearch) return;
+        const project = researchProjects[id];
+        if (gameState.researchPoints >= project.cost) {
+            gameState.researchPoints -= project.cost;
+            gameState.activeResearch = { id: id, startTime: Date.now() };
+            populateResearch();
+            updateDisplay();
+        }
+    }
+
+    function completeResearch(id) {
+        const project = researchProjects[id];
+        gameState.completedResearch.add(id);
+        gameState.activeResearch = null;
+        project.effect(); // Apply direct effects
+        recalculatePps(); // Recalculate for passive effects
+        populateResearch();
+        updateDisplay();
+        showRandomEventNotification(`🔬 Research Complete!`, `${project.name}`);
     }
 
     // --- Quality Control System ---
@@ -586,6 +724,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ppsDisplay.textContent = formatNumber(gameState.totalPps);
         document.getElementById('starch').textContent = formatNumber(gameState.starch);
         
+        // Update research display
+        if (gameState.purchasedUpgrades.has('researchLab')) {
+            document.getElementById('research-tab-button').style.display = 'block';
+            document.getElementById('research-points').textContent = formatNumber(Math.floor(gameState.researchPoints));
+            // Repopulate to update progress bars and availability
+            populateResearch();
+        }
+
         // Update generators
         generators.forEach(gen => {
             const cost = calculateCost(gen);
@@ -856,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const achievementArray = Array.from(gameState.unlockedAchievements);
         const upgradesArray = Array.from(gameState.purchasedUpgrades);
         const prestigeUpgradesArray = Array.from(gameState.purchasedPrestigeUpgrades);
+        const completedResearchArray = Array.from(gameState.completedResearch);
 
         const saveState = {
             gameState: { 
@@ -863,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 unlockedAchievements: achievementArray,
                 purchasedUpgrades: upgradesArray,
                 purchasedPrestigeUpgrades: prestigeUpgradesArray,
+                completedResearch: completedResearchArray,
             },
             generators: generators.map(g => ({ id: g.id, owned: g.owned })),
             exportTimestamp: Date.now(),
@@ -973,8 +1121,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!gameState.starch) gameState.starch = 0;
                     if (!gameState.totalStarch) gameState.totalStarch = 0;
 
+                    // Re-apply effects from loaded upgrades that don't persist automatically
+                    if (gameState.purchasedUpgrades.has('researchLab')) {
+                        document.getElementById('research-tab-button').style.display = 'block';
+                    }
+
                     // Load generator ownership
-                    saveState.generators.forEach(savedGen => {
+                    parsedState.generators.forEach(savedGen => {
                         const gameGen = generators.find(g => g.id === savedGen.id);
                         if (gameGen) {
                             gameGen.owned = savedGen.owned || 0;
@@ -1024,6 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const achievementArray = Array.from(gameState.unlockedAchievements);
         const upgradesArray = Array.from(gameState.purchasedUpgrades);
         const prestigeUpgradesArray = Array.from(gameState.purchasedPrestigeUpgrades);
+        const completedResearchArray = Array.from(gameState.completedResearch);
 
         const saveState = {
             gameState: { 
@@ -1031,6 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 unlockedAchievements: achievementArray,
                 purchasedUpgrades: upgradesArray,
                 purchasedPrestigeUpgrades: prestigeUpgradesArray,
+                completedResearch: completedResearchArray,
             },
             generators: generators.map(g => ({ id: g.id, owned: g.owned })),
             lastSaveTimestamp: Date.now()
@@ -1063,33 +1218,41 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!gameState.defectivePotatoes) gameState.defectivePotatoes = 0;
             if (!gameState.qualityBonusMultiplier) gameState.qualityBonusMultiplier = 1;
 
+            // Initialize research system if not present
+            if (!gameState.researchPoints) gameState.researchPoints = 0;
+            if (!gameState.completedResearch) gameState.completedResearch = new Set();
+            else gameState.completedResearch = new Set(gameState.completedResearch); // Convert from array
+            if (!gameState.activeResearch) gameState.activeResearch = null;
+
+
+            // Re-apply effects from loaded upgrades that don't persist automatically
+            if (gameState.purchasedUpgrades.has('researchLab')) {
+                document.getElementById('research-tab-button').style.display = 'block';
+            }
 
             // Load generator ownership
             parsedState.generators.forEach(savedGen => {
                 const gameGen = generators.find(g => g.id === savedGen.id);
                 if (gameGen) {
-                    gameGen.owned = savedGen.owned;
+                    gameGen.owned = savedGen.owned || 0;
                 }
             });
 
-            // Recalculate PPS from the loaded generator counts BEFORE calculating offline gains
-            recalculatePps();
-
-            // Do not award offline progress for active buffs
-            const timeOffline = Date.now() - parsedState.lastSaveTimestamp;
-            const secondsOffline = Math.floor(timeOffline / 1000);
-            if (secondsOffline > 0) {
-                const offlinePotatoes = secondsOffline * gameState.totalPps;
-                if (offlinePotatoes > 0) {
-                    gameState.potatoes += offlinePotatoes;
-                    // Use a timeout to ensure the alert doesn't block the initial render
-                    setTimeout(() => {
-                        alert(`Welcome back! You earned ${formatNumber(offlinePotatoes)} potatoes while you were away.`);
-                    }, 100);
-                }
-            }
+            // Save the imported data to localStorage
+            saveGame();
             
-            console.log("Game Loaded.");
+            // Refresh the game display
+            recalculatePps();
+            populateGenerators();
+            populateUpgrades();
+            populatePrestigeUpgrades();
+            populateAchievementsGrid();
+            updateDisplay();
+
+            alert('Save data imported successfully!');
+            
+            modal.style.display = 'none';
+            modal.remove();
         }
     }
 
@@ -1108,10 +1271,21 @@ document.addEventListener('DOMContentLoaded', () => {
         generators.forEach(gen => {
             let pps = gen.basePps;
             
+            // Apply research bonuses
+            if (gen.id === 'sprout' || gen.id === 'farmer') {
+                if (gameState.completedResearch.has('advFertilizers')) {
+                    pps *= 1.25;
+                }
+            }
+            if (gen.id === 'planet' || gen.id === 'portal') {
+                if (gameState.completedResearch.has('gravitationalLensing')) {
+                    pps *= 2;
+                }
+            }
+
             // Apply all generator-specific upgrades for this generator
             for (const upgradeKey in upgrades) {
-                const upgrade = upgrades[upgradeKey];
-                if (upgrade.type === 'generator' && upgrade.generator === gen.id && gameState.purchasedUpgrades.has(upgradeKey)) {
+                if (gameState.purchasedUpgrades.has(upgradeKey)) {
                     pps *= 2; // Each generator upgrade doubles the efficiency
                 }
             }
@@ -1142,6 +1316,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply global multiplier upgrades
         if (gameState.purchasedUpgrades.has('quantumSpuds')) {
             total *= 1.5;
+        }
+
+        // Apply research global bonus
+        if (gameState.completedResearch.has('potatoPlastics')) {
+            total *= 1.10;
         }
 
         // Apply generator count upgrades
