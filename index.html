@@ -19,7 +19,6 @@
                 <p>Potatoes: <span id="potatoes">0</span></p>
                 <p>Potatoes per second: <span id="pps">0</span></p>
                 <p>✨ Starch: <span id="starch">0</span></p>
-                <p id="combo-display" style="display: none;">🔥 Combo: <span id="combo-count">0</span>x</p>
             </div>
             <div id="buff-display"></div>
             <div id="settings-button-container">
@@ -31,12 +30,25 @@
         <div id="middle-column" class="column">
             <div class="tabs">
                 <button class="tab-link active" data-tab="generators-tab">Generators</button>
+                <button class="tab-link" data-tab="research-tab" id="research-tab-button" style="display: none;">Research</button>
                 <button class="tab-link" data-tab="prestige-tab" id="prestige-tab-button" style="display: none;">Prestige</button>
             </div>
 
             <div id="generators-tab" class="tab-content active">
                 <div id="generators-container">
                     <!-- Generators will be dynamically added here by script.js -->
+                </div>
+            </div>
+
+            <div id="research-tab" class="tab-content">
+                <h2>Research Lab</h2>
+                <p>Unlock powerful, permanent technologies. Research points are generated passively based on your PPS.</p>
+                <div id="research-stats">
+                    <p>🔬 Research Points: <span id="research-points">0</span></p>
+                </div>
+                <hr>
+                <div id="research-container">
+                    <!-- Research projects will be dynamically added here -->
                 </div>
             </div>
 
@@ -70,6 +82,8 @@
             <p>Game data is saved to your browser automatically.</p>
             <div class="modal-buttons">
                 <button id="manual-save-btn">Manual Save</button>
+                <button id="export-save-btn">Export Save</button>
+                <button id="import-save-btn">Import Save</button>
                 <button id="wipe-save-btn" class="danger">Wipe Save</button>
             </div>
             <div class="attribution">

@@ -29,12 +29,17 @@ document.addEventListener('DOMContentLoaded', () => {
         starch: 0,
         totalStarch: 0, // Starch if we reset now
         purchasedPrestigeUpgrades: new Set(),
+        // Quality Control System
+        qualityLevel: 1, // 1-10 quality rating
+        qualityPoints: 0, // Points to spend on quality improvements
+        qualityInspections: 0, // Total inspections performed
+        defectivePotatoes: 0, // Potatoes that failed quality control
+        qualityBonusMultiplier: 1, // Multiplier based on quality level
         // Fun features
-        clickCombo: 0,
-        lastClickTime: 0,
         totalPlayTime: 0,
         gameStartTime: Date.now(),
         randomEventCooldown: 0,
+        newsTickerMessages: [],
     };
 
     // --- Definitions ---
@@ -46,35 +51,75 @@ document.addEventListener('DOMContentLoaded', () => {
         'firstGenerator': { name: 'Growing Garden', description: 'Buy your first Potato Sprout.', condition: () => generators[0].owned >= 1, reward: 'Your first step into automation!', icon: '🌱' },
         'tenThousandPotatoes': { name: 'Spud Central', description: 'Accumulate 10,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 10000, reward: 'A significant potato milestone!', icon: '🥔' },
         'clickMaster': { name: 'Click Master', description: 'Click 1,000 times.', condition: () => gameState.clicks >= 1000, reward: 'Your fingers are getting strong!', icon: '⚡' },
-        'speedDemon': { name: 'Speed Demon', description: 'Achieve a 10-click combo.', condition: () => false, reward: 'Lightning fast clicking!', icon: '💨' }, // Manual trigger
         'millionaire': { name: 'Potato Millionaire', description: 'Accumulate 1,000,000 potatoes.', condition: () => gameState.totalPotatoesEarned >= 1000000, reward: 'You\'re rich in potatoes!', icon: '💰' },
         'dedicated': { name: 'Dedicated Farmer', description: 'Play for 1 hour total.', condition: () => gameState.totalPlayTime >= 3600000, reward: 'True dedication to potato farming!', icon: '⏰' },
         'autoClicker': { name: 'Automation Nation', description: 'Generate 100 PPS.', condition: () => gameState.totalPps >= 100, reward: 'The machines work for you now!', icon: '🤖' },
         'overachiever': { name: 'Overachiever', description: 'Unlock 5 other achievements.', condition: () => gameState.unlockedAchievements.size >= 5, reward: 'You love collecting achievements!', icon: '🏆' },
+        // Quality Control Achievements
+        'qualityInspector': { name: 'Quality Inspector', description: 'Perform your first quality inspection.', condition: () => gameState.qualityInspections >= 1, reward: 'Quality control begins!', icon: '🔍' },
+        'premiumPotatoes': { name: 'Premium Potatoes', description: 'Reach Quality Level 5.', condition: () => gameState.qualityLevel >= 5, reward: 'Your potatoes are getting fancy!', icon: '⭐' },
+        'perfectionist': { name: 'Perfectionist', description: 'Reach Quality Level 10.', condition: () => gameState.qualityLevel >= 10, reward: 'Potato perfection achieved!', icon: '💎' },
+        'qualityControl': { name: 'Quality Control Master', description: 'Perform 100 quality inspections.', condition: () => gameState.qualityInspections >= 100, reward: 'You know quality when you see it!', icon: '📋' },
     };
 
     const upgrades = {
-        'betterFingers': { name: 'Better Fingers', description: 'Clicking power +1.', cost: 100, requirement: () => gameState.clicks >= 10, effect: () => gameState.clickPower += 1, type: 'click' },
-        'reinforcedThumb': { name: 'Reinforced Thumb', description: 'Clicks are twice as effective.', cost: 500, requirement: () => gameState.clicks >= 100, effect: () => gameState.clickPower *= 2, type: 'click' },
-        'potatoMouse': { name: 'Potato Mouse', description: 'Clicks also generate +1% of your total PPS.', cost: 10000, requirement: () => gameState.clicks >= 500, effect: () => {}, type: 'specialClick' }, // Special handling in click function
-        'sproutBooster': { name: 'Sprout Booster', description: 'Potato Sprouts are twice as effective.', cost: 1000, requirement: () => generators[0].owned >= 5, effect: () => {}, type: 'generator', generator: 'sprout' },
+        // Early Game PPS Boosts (ordered by cost)
+        'betterFingers': { name: 'Better Fingers', description: 'Clicking power +1.', cost: 50, requirement: () => gameState.clicks >= 5, effect: () => gameState.clickPower += 1, type: 'click' },
+        'reinforcedThumb': { name: 'Reinforced Thumb', description: 'Clicks are twice as effective.', cost: 200, requirement: () => gameState.clicks >= 25, effect: () => gameState.clickPower *= 2, type: 'click' },
+        'cheaperSprouts': { name: 'Cheaper Sprouts', description: 'Potato Sprouts are twice as efficient.', cost: 500, requirement: () => gameState.totalPotatoesEarned >= 500, effect: () => {}, type: 'generator', generator: 'sprout' },
+        'sproutBooster': { name: 'Sprout Fertilizer', description: 'Potato Sprouts are twice as effective.', cost: 500, requirement: () => generators[0].owned >= 1, effect: () => {}, type: 'generator', generator: 'sprout' },
+        'farmerTools': { name: 'Farmer Tools', description: 'Tater Tot Farmers are twice as effective.', cost: 4000, requirement: () => gameState.totalPotatoesEarned >= 2000, effect: () => {}, type: 'generator', generator: 'farmer' },
+        'carpalTunnelSolution': { name: 'Carpal Tunnel Solution', description: 'Clicks are twice as effective again.', cost: 5000, requirement: () => gameState.purchasedUpgrades.has('reinforcedThumb'), effect: () => gameState.clickPower *= 2, type: 'click' },
+        'organicFarms': { name: 'Organic Farms', description: 'Tater Tot Farmers are twice as efficient.', cost: 5000, requirement: () => gameState.totalPotatoesEarned >= 5000, effect: () => {}, type: 'generator', generator: 'farmer' },
+        'cannonUpgrade': { name: 'Cannon Upgrade', description: 'Potato Cannons are twice as effective.', cost: 25000, requirement: () => gameState.totalPotatoesEarned >= 15000, effect: () => {}, type: 'generator', generator: 'cannon' },
+        'potatoMouse': { name: 'Potato Mouse', description: 'Clicks also generate +1% of your total PPS.', cost: 25000, requirement: () => gameState.clicks >= 200, effect: () => {}, type: 'specialClick' },
+        'sproutEvolution': { name: 'Sprout Evolution', description: 'Potato Sprouts are twice as effective.', cost: 25000, requirement: () => generators[0].owned >= 5, effect: () => {}, type: 'generator', generator: 'sprout' },
+        'potatoSerum': { name: 'Potato Serum', description: 'Potato production gains +5% of your total potatoes made.', cost: 50000, requirement: () => gameState.totalPotatoesEarned >= 50000, effect: () => {}, type: 'production_boost' },
+        'adamantiumFingers': { name: 'Adamantium Fingers', description: 'Clicks are twice as effective.', cost: 100000, requirement: () => gameState.purchasedUpgrades.has('carpalTunnelSolution'), effect: () => gameState.clickPower *= 2, type: 'click' },
+        'farmerUnion': { name: 'Farmer Union', description: 'Tater Tot Farmers are twice as effective.', cost: 200000, requirement: () => generators[1].owned >= 5, effect: () => {}, type: 'generator', generator: 'farmer' },
+        'factoryAutomation': { name: 'Factory Automation', description: 'Fryer Factories are twice as effective.', cost: 200000, requirement: () => gameState.totalPotatoesEarned >= 100000, effect: () => {}, type: 'generator', generator: 'factory' },
+        'massProduction': { name: 'Mass Production', description: 'Potato Cannons and Fryer Factories are twice as efficient.', cost: 500000, requirement: () => gameState.totalPotatoesEarned >= 500000, effect: () => {}, type: 'dual_generator' },
+        'cannonBarrage': { name: 'Cannon Barrage', description: 'Potato Cannons are twice as effective.', cost: 1250000, requirement: () => generators[2].owned >= 5, effect: () => {}, type: 'generator', generator: 'cannon' },
+        'couchComfort': { name: 'Couch Comfort', description: 'Couch Potatoes are twice as effective.', cost: 2500000, requirement: () => gameState.totalPotatoesEarned >= 1000000, effect: () => {}, type: 'generator', generator: 'couch' },
+        'potatoEmpire': { name: 'Potato Empire', description: 'Potato production gains +10% of your total potatoes made.', cost: 5000000, requirement: () => gameState.totalPotatoesEarned >= 5000000, effect: () => {}, type: 'production_boost' },
+        'factoryNetwork': { name: 'Factory Network', description: 'Fryer Factories are twice as effective.', cost: 10000000, requirement: () => generators[3].owned >= 5, effect: () => {}, type: 'generator', generator: 'factory' },
+        'satelliteNetwork': { name: 'Satellite Network', description: 'Spudnik Satellites are twice as effective.', cost: 25000000, requirement: () => gameState.totalPotatoesEarned >= 10000000, effect: () => {}, type: 'generator', generator: 'spudnik' },
+        'quantumSpuds': { name: 'Quantum Spuds', description: 'All generators are 50% more efficient.', cost: 50000000, requirement: () => gameState.totalPotatoesEarned >= 50000000, effect: () => {}, type: 'global' },
+        'ultimateComfort': { name: 'Ultimate Comfort', description: 'Couch Potatoes are twice as effective.', cost: 125000000, requirement: () => generators[4].owned >= 5, effect: () => {}, type: 'generator', generator: 'couch' },
+        'planetMining': { name: 'Planet Mining', description: 'Potato Planets are twice as effective.', cost: 500000000, requirement: () => gameState.totalPotatoesEarned >= 250000000, effect: () => {}, type: 'generator', generator: 'planet' },
+        'potatoInfinity': { name: 'Potato Infinity', description: 'Potato production gains +25% of your total potatoes made.', cost: 500000000, requirement: () => gameState.totalPotatoesEarned >= 500000000, effect: () => {}, type: 'production_boost' },
+        'portalStabilization': { name: 'Portal Stabilization', description: 'Potato-Verse Portals are twice as effective.', cost: 37500000000, requirement: () => gameState.totalPotatoesEarned >= 15000000000, effect: () => {}, type: 'generator', generator: 'portal' },
+        'luckySpud': { name: 'Lucky Spud', description: 'Golden Potatoes have a 10% chance to give a second reward.', cost: 50000000000, requirement: () => gameState.unlockedAchievements.has('goldenTouch'), effect: () => {}, type: 'golden' },
+        'tuberAwakening': { name: 'Tuber Awakening', description: 'The Great Tuber is twice as effective.', cost: 500000000000, requirement: () => gameState.totalPotatoesEarned >= 200000000000, effect: () => {}, type: 'generator', generator: 'tuber' },
+        'kilotonPotato': { name: 'Kiloton Potato', description: 'All production doubled for every 1000 total generators owned.', cost: 500000000000000, requirement: () => generators.reduce((sum, gen) => sum + gen.owned, 0) >= 50, effect: () => {}, type: 'generator_count' },
+        'singularityStabilizers': { name: 'Singularity Stabilizers', description: 'Tuber Singularities are twice as effective.', cost: 5000000000000000, requirement: () => generators[9] && generators[9].owned >= 1, effect: () => {}, type: 'generator', generator: 'singularity' },
+        // Quality Control Upgrades
+        'qualityInspections': { name: 'Quality Inspections', description: 'Unlock quality control system. +10% potato value per quality level.', cost: 1000, requirement: () => gameState.totalPotatoesEarned >= 1000, effect: () => {}, type: 'quality_unlock' },
+        'qualityTraining': { name: 'Quality Training', description: 'Quality points generation +50%.', cost: 15000, requirement: () => gameState.purchasedUpgrades.has('qualityInspections'), effect: () => {}, type: 'quality_boost' },
+        'automatedInspection': { name: 'Automated Inspection', description: 'Automatically perform quality inspections every 10 seconds.', cost: 100000, requirement: () => gameState.qualityLevel >= 3, effect: () => {}, type: 'quality_auto' },
+        'premiumPackaging': { name: 'Premium Packaging', description: 'Quality bonus doubled for all potatoes.', cost: 1000000, requirement: () => gameState.qualityLevel >= 5, effect: () => {}, type: 'quality_premium' },
+        'perfectQuality': { name: 'Perfect Quality', description: 'Unlock Quality Level 10 and triple quality bonus.', cost: 50000000, requirement: () => gameState.qualityLevel >= 8, effect: () => {}, type: 'quality_perfect' },
     };
 
     const prestigeUpgrades = {
         'starchyStart': { name: 'Starchy Start', description: 'Begin every new game with 10 Tater Tot Farmers.', cost: 1, effect: () => {} },
         'cosmicSeasoning': { name: 'Cosmic Seasoning', description: 'All potato production is permanently increased by 10%.', cost: 5, effect: () => {} },
         'eyeForAnEye': { name: 'Eye for an Eye', description: 'Golden Potatoes are twice as likely to appear.', cost: 25, effect: () => {} },
+        'prestigePower': { name: 'Prestige Power', description: 'Each unspent Starch boosts total PPS by 1%.', cost: 50, effect: () => {} }, // Handled in recalculatePps
+        'goldenAge': { name: 'Golden Age', description: 'Golden Potato effects last twice as long.', cost: 100, effect: () => {} }, // Handled in handleGoldenPotatoClick
+        'ultimateTuber': { name: 'The Ultimate Tuber', description: 'Unlocks a final, powerful generator.', cost: 500, effect: () => {} }, // Handled in populateGenerators
     };
     let generators = [
-        { id: 'sprout', name: 'Potato Sprout', description: "A tiny, hopeful green shoot.", baseCost: 15, basePps: 1, owned: 0 },
-        { id: 'farmer', name: 'Tater Tot Farmer', description: "A stout, grumpy-looking potato person.", baseCost: 100, basePps: 8, owned: 0 },
-        { id: 'cannon', name: 'Potato Cannon', description: "Launches potatoes into a giant pile.", baseCost: 1100, basePps: 55, owned: 0 },
-        { id: 'factory', name: 'Fryer Factory', description: "Turns raw spuds into valuable fries.", baseCost: 12000, basePps: 320, owned: 0 },
-        { id: 'couch', name: 'Couch Potato', description: "Generates spuds via sheer willpower.", baseCost: 130000, basePps: 1900, owned: 0 },
-        { id: 'spudnik', name: 'Spudnik Satellite', description: "Beams down potato-multiplying energy.", baseCost: 1400000, basePps: 12000, owned: 0 },
-        { id: 'planet', name: 'Potato Planet', description: "Harvest it with giant space-tractors.", baseCost: 20000000, basePps: 85000, owned: 0 },
-        { id: 'portal', name: 'Potato-Verse Portal', description: "Siphons potatoes from alternate dimensions.", baseCost: 330000000, basePps: 666666, owned: 0 },
-        { id: 'tuber', name: 'The Great Tuber', description: "Its snores generate reality-bending potatoes.", baseCost: 5100000000, basePps: 9876543, owned: 0 },
+        { id: 'sprout', name: 'Potato Sprout', description: "A tiny, hopeful green shoot.", baseCost: 5, basePps: 1, owned: 0 },
+        { id: 'farmer', name: 'Tater Tot Farmer', description: "A stout, grumpy-looking potato person.", baseCost: 75, basePps: 8, owned: 0 },
+        { id: 'cannon', name: 'Potato Cannon', description: "Launches psotatoes into a giant pile.", baseCost: 750, basePps: 55, owned: 0 },
+        { id: 'factory', name: 'Fryer Factory', description: "Turns raw spuds into valuable fries.", baseCost: 8000, basePps: 320, owned: 0 },
+        { id: 'couch', name: 'Couch Potato', description: "Generates spuds via sheer willpower.", baseCost: 90000, basePps: 1900, owned: 0 },
+        { id: 'spudnik', name: 'Spudnik Satellite', description: "Beams down potato-multiplying energy.", baseCost: 1000000, basePps: 12000, owned: 0 },
+        { id: 'planet', name: 'Potato Planet', description: "Harvest it with giant space-tractors.", baseCost: 15000000, basePps: 85000, owned: 0 },
+        { id: 'portal', name: 'Potato-Verse Portal', description: "Siphons potatoes from alternate dimensions.", baseCost: 250000000, basePps: 666666, owned: 0 },
+        { id: 'tuber', name: 'The Great Tuber', description: "Its snores generate reality-bending potatoes.", baseCost: 3500000000, basePps: 9876543, owned: 0 },
+        { id: 'singularity', name: 'Tuber Singularity', description: "A potato so dense it has its own gravity.", baseCost: 7.5e14, basePps: 1e8, owned: 0, requires: 'ultimateTuber' },
     ];
 
     // --- Initialization ---
@@ -95,6 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear the container before repopulating
         generatorsContainer.innerHTML = ''; 
         generators.forEach(gen => {
+            // Check for special requirements
+            if (gen.requires && !gameState.purchasedPrestigeUpgrades.has(gen.requires)) {
+                return; // Don't show this generator yet
+            }
+
             const elem = document.createElement('div');
             elem.id = `gen-${gen.id}`;
             elem.className = 'generator disabled';
@@ -120,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         upgradesContainer.innerHTML = '';
         for (const id in upgrades) {
             const upgrade = upgrades[id];
-            
+
             // Skip upgrades that are already purchased
             if (gameState.purchasedUpgrades.has(id)) {
                 const elem = document.createElement('div');
@@ -134,14 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 upgradesContainer.appendChild(elem);
                 continue;
             }
-            
-            // Check if requirements are met
+
             const requirementMet = !upgrade.requirement || upgrade.requirement();
+            const elem = document.createElement('div');
+            elem.id = `upgrade-${id}`;
             
-            // Only show upgrades if requirements are met
             if (requirementMet) {
-                const elem = document.createElement('div');
-                elem.id = `upgrade-${id}`;
                 elem.className = 'upgrade';
                 elem.innerHTML = `
                     <h3>${upgrade.name}</h3>
@@ -153,13 +201,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameState.potatoes < upgrade.cost) {
                     elem.classList.add('disabled');
                 }
-                
-                upgradesContainer.appendChild(elem);
+            } else {
+                elem.className = 'upgrade locked';
+                elem.innerHTML = `
+                    <h3>${upgrade.name}</h3>
+                    <p>${upgrade.description}</p>
+                    <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
+                `;
             }
+            
+            upgradesContainer.appendChild(elem);
         }
-    }
-
-    function populateAchievementsGrid() {
+    }    function populateAchievementsGrid() {
         const grid = document.getElementById('achievements-grid');
         if (!grid) return; // Exit if element doesn't exist
         
@@ -260,6 +313,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         wipeSaveBtn.addEventListener('click', wipeSave);
 
+        // Export/Import listeners
+        document.getElementById('export-save-btn').addEventListener('click', exportSave);
+        document.getElementById('import-save-btn').addEventListener('click', importSave);
+
         // Achievements modal
         document.getElementById('achievements-btn').addEventListener('click', () => {
             document.getElementById('achievements-modal').style.display = 'flex';
@@ -285,46 +342,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function handlePotatoClick(event) {
         gameState.clicks++;
         
-        // Combo system
-        const now = Date.now();
-        if (now - gameState.lastClickTime < 500) { // Within 500ms for combo
-            gameState.clickCombo++;
-            if (gameState.clickCombo >= 10 && !gameState.unlockedAchievements.has('speedDemon')) {
-                gameState.unlockedAchievements.add('speedDemon');
-                showAchievementNotification('Speed Demon');
-                populateAchievementsGrid();
-            }
-        } else {
-            gameState.clickCombo = 1;
-        }
-        gameState.lastClickTime = now;
-        
-        // Calculate click value with combo bonus
+        // Simple click value calculation
         let clickValue = gameState.clickPower;
         if (gameState.purchasedUpgrades.has('potatoMouse')) {
             clickValue += gameState.totalPps * 0.01;
         }
         
-        // Combo multiplier (caps at 3x)
-        const comboMultiplier = Math.min(1 + (gameState.clickCombo - 1) * 0.1, 3);
-        clickValue *= comboMultiplier;
-        
         gameState.potatoes += clickValue;
         gameState.totalPotatoesEarned += clickValue;
         
-        // Enhanced floating text with combo info
-        let displayText = `+${formatNumber(clickValue)}`;
-        if (gameState.clickCombo > 1) {
-            displayText += ` (${gameState.clickCombo}x COMBO!)`;
-        }
-        createFloatingText(event.clientX, event.clientY, displayText, gameState.clickCombo);
+        // Simple floating text
+        createFloatingText(event.clientX, event.clientY, `+${formatNumber(clickValue)}`);
         
         // Potato shake animation
         potatoImg.classList.add('shake');
         setTimeout(() => potatoImg.classList.remove('shake'), 200);
-        
-        // Play click sound
-        playClickSound();
         
         updateDisplay();
     }
@@ -375,6 +407,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Random events
         tryRandomEvent();
+
+        // Automated quality inspections
+        if (gameState.purchasedUpgrades.has('automatedInspection')) {
+            // Auto-inspect every 10 seconds
+            if (gameState.totalPlayTime % 10000 < 1000) {
+                performQualityInspection();
+            }
+        }
         
         updateDisplay();
         checkAchievements();
@@ -433,28 +473,110 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4000);
     }
 
-    function playClickSound() {
-        // Create audio context for click sounds
-        if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-            try {
-                const audioContext = new (AudioContext || webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.setValueAtTime(800 + Math.random() * 200, audioContext.currentTime);
-                oscillator.type = 'square';
-                
-                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-            } catch (e) {
-                // Silent fail if audio not supported
+    // --- Quality Control System ---
+    function performQualityInspection() {
+        if (!gameState.purchasedUpgrades.has('qualityInspections')) {
+            return;
+        }
+
+        gameState.qualityInspections++;
+        
+        // Generate quality points based on current production
+        let pointsGained = Math.floor(gameState.totalPps * 0.1) + 1;
+        
+        // Bonus from quality training
+        if (gameState.purchasedUpgrades.has('qualityTraining')) {
+            pointsGained = Math.floor(pointsGained * 1.5);
+        }
+        
+        gameState.qualityPoints += pointsGained;
+        
+        // Random chance to find defective potatoes
+        if (Math.random() < 0.15) {
+            const defects = Math.floor(gameState.totalPps * 0.02) + 1;
+            gameState.defectivePotatoes += defects;
+            createFloatingText(window.innerWidth / 2, 200, `Found ${defects} defective potatoes!`, '#ff6b6b');
+        }
+        
+        createFloatingText(window.innerWidth / 2, 150, `+${pointsGained} Quality Points`, '#4CAF50');
+        updateQualityDisplay();
+    }
+
+    function upgradeQuality() {
+        const cost = getQualityUpgradeCost();
+        if (gameState.qualityPoints >= cost && gameState.qualityLevel < getMaxQualityLevel()) {
+            gameState.qualityPoints -= cost;
+            gameState.qualityLevel++;
+            updateQualityBonus();
+            updateQualityDisplay();
+            createFloatingText(window.innerWidth / 2, 100, `Quality Level ${gameState.qualityLevel}!`, '#ffc400');
+        }
+    }
+
+    function getQualityUpgradeCost() {
+        return Math.floor(100 * Math.pow(2.5, gameState.qualityLevel - 1));
+    }
+
+    function getMaxQualityLevel() {
+        if (gameState.purchasedUpgrades.has('perfectQuality')) return 10;
+        return 8;
+    }
+
+    function updateQualityBonus() {
+        let baseBonus = gameState.qualityLevel * 0.1; // 10% per level
+        
+        if (gameState.purchasedUpgrades.has('premiumPackaging')) {
+            baseBonus *= 2;
+        }
+        
+        if (gameState.purchasedUpgrades.has('perfectQuality')) {
+            baseBonus *= 3;
+        }
+        
+        gameState.qualityBonusMultiplier = 1 + baseBonus;
+    }
+
+    function updateQualityDisplay() {
+        // Update quality display in stats area
+        let qualityStats = document.getElementById('quality-stats');
+        if (!qualityStats) {
+            qualityStats = document.createElement('div');
+            qualityStats.id = 'quality-stats';
+            document.getElementById('stats').appendChild(qualityStats);
+        }
+        
+        if (gameState.purchasedUpgrades.has('qualityInspections')) {
+            qualityStats.style.display = 'block';
+            qualityStats.innerHTML = `
+                <p>🔍 Quality Level: <span style="color: #ffc400;">${gameState.qualityLevel}/${getMaxQualityLevel()}</span></p>
+                <p>📋 Quality Points: <span style="color: #4CAF50;">${formatNumber(gameState.qualityPoints)}</span></p>
+                <p>⭐ Quality Bonus: <span style="color: #ffc400;">+${Math.round((gameState.qualityBonusMultiplier - 1) * 100)}%</span></p>
+                ${gameState.defectivePotatoes > 0 ? `<p>❌ Defects Found: <span style="color: #ff6b6b;">${formatNumber(gameState.defectivePotatoes)}</span></p>` : ''}
+                <div style="margin-top: 10px;">
+                    <button id="quality-inspect-btn" ${gameState.qualityInspections % 3 === 0 ? 'disabled' : ''}>
+                        ${gameState.qualityInspections % 3 === 0 ? 'Inspecting...' : 'Quality Inspection'}
+                    </button>
+                    ${gameState.qualityLevel < getMaxQualityLevel() ? `
+                        <button id="quality-upgrade-btn" ${gameState.qualityPoints < getQualityUpgradeCost() ? 'disabled' : ''}>
+                            Upgrade Quality (${formatNumber(getQualityUpgradeCost())} pts)
+                        </button>
+                    ` : '<p style="color: #ffc400;">✨ Maximum Quality Achieved! ✨</p>'}
+                </div>
+            `;
+            
+            // Add event listeners for quality buttons
+            const inspectBtn = document.getElementById('quality-inspect-btn');
+            const upgradeBtn = document.getElementById('quality-upgrade-btn');
+            
+            if (inspectBtn && !inspectBtn.onclick) {
+                inspectBtn.onclick = performQualityInspection;
             }
+            
+            if (upgradeBtn && !upgradeBtn.onclick) {
+                upgradeBtn.onclick = upgradeQuality;
+            }
+        } else {
+            qualityStats.style.display = 'none';
         }
     }
 
@@ -464,17 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ppsDisplay.textContent = formatNumber(gameState.totalPps);
         document.getElementById('starch').textContent = formatNumber(gameState.starch);
         
-        // Update combo display
-        const comboDisplay = document.getElementById('combo-display');
-        const comboCount = document.getElementById('combo-count');
-        if (gameState.clickCombo > 1) {
-            comboDisplay.style.display = 'block';
-            comboCount.textContent = gameState.clickCombo;
-            comboDisplay.style.color = gameState.clickCombo > 5 ? '#ff69b4' : gameState.clickCombo > 3 ? '#ffa500' : '#90ee90';
-        } else {
-            comboDisplay.style.display = 'none';
-        }
-
         // Update generators
         generators.forEach(gen => {
             const cost = calculateCost(gen);
@@ -497,6 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update buff display
         updateBuffDisplay();
+
+        // Update quality control display
+        updateQualityDisplay();
 
         // Update prestige info
         const prestigeGain = calculatePrestigeGain();
@@ -545,14 +659,33 @@ document.addEventListener('DOMContentLoaded', () => {
             populateAchievementsGrid();
         }
 
+        let durationMultiplier = 1;
+        if (gameState.purchasedPrestigeUpgrades.has('goldenAge')) {
+            durationMultiplier = 2;
+        }
+
         // Give a random reward
         const roll = Math.random();
         if (roll < 0.9) { // 90% chance for Fry Frenzy
-            activateBuff('fryFrenzy', 77);
+            activateBuff('fryFrenzy', 77 * durationMultiplier);
         } else { // 10% chance for a lump sum
             const lumpSum = (gameState.totalPps * 60 * 15) + 13; // 15 mins of production + 13
             gameState.potatoes += lumpSum;
             createFloatingText(event.clientX, event.clientY, `+${formatNumber(lumpSum)}!`);
+        }
+
+        // Lucky Spud check
+        if (gameState.purchasedUpgrades.has('luckySpud') && Math.random() < 0.1) {
+            // Give the *other* reward
+            if (roll >= 0.9) { // If they got the lump sum, give the buff
+                 activateBuff('fryFrenzy', 77 * durationMultiplier);
+                 showRandomEventNotification('🍀 Lucky Spud!', 'You got a bonus buff!');
+            } else { // If they got the buff, give the lump sum
+                const lumpSum = (gameState.totalPps * 60 * 15) + 13;
+                gameState.potatoes += lumpSum;
+                createFloatingText(event.clientX, event.clientY, `+${formatNumber(lumpSum)}! (Lucky)`);
+                showRandomEventNotification('🍀 Lucky Spud!', 'You got a bonus lump sum!');
+            }
         }
 
         // Don't reset the main timer here, let the despawn timer handle it
@@ -717,6 +850,174 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // --- Export/Import Logic ---
+    function exportSave() {
+        // Create save data
+        const achievementArray = Array.from(gameState.unlockedAchievements);
+        const upgradesArray = Array.from(gameState.purchasedUpgrades);
+        const prestigeUpgradesArray = Array.from(gameState.purchasedPrestigeUpgrades);
+
+        const saveState = {
+            gameState: { 
+                ...gameState, 
+                unlockedAchievements: achievementArray,
+                purchasedUpgrades: upgradesArray,
+                purchasedPrestigeUpgrades: prestigeUpgradesArray,
+            },
+            generators: generators.map(g => ({ id: g.id, owned: g.owned })),
+            exportTimestamp: Date.now(),
+            version: "1.0"
+        };
+
+        // Convert to base64 string
+        const saveString = btoa(JSON.stringify(saveState));
+        
+        // Create a textarea with the save data for easy copying
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay export-modal';
+        modal.innerHTML = `
+            <div class="modal-content export-modal-content">
+                <h2>🥔 Export Save Data</h2>
+                <p>Copy this text and save it somewhere safe:</p>
+                <textarea id="export-textarea" readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 12px;">${saveString}</textarea>
+                <div style="margin-top: 10px;">
+                    <button id="copy-export-btn">Copy to Clipboard</button>
+                    <button id="close-export-btn">Close</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.style.display = 'flex';
+
+        // Select all text in textarea
+        const textarea = document.getElementById('export-textarea');
+        textarea.select();
+
+        // Copy button functionality
+        document.getElementById('copy-export-btn').addEventListener('click', () => {
+            textarea.select();
+            document.execCommand('copy');
+            alert('Save data copied to clipboard!');
+        });
+
+        // Close button functionality
+        document.getElementById('close-export-btn').addEventListener('click', () => {
+            modal.style.display = 'none';
+            modal.remove();
+        });
+
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+        });
+    }
+
+    function importSave() {
+        // Create import modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay import-modal';
+        modal.innerHTML = `
+            <div class="modal-content import-modal-content">
+                <h2>🥔 Import Save Data</h2>
+                <p>Paste your save data here:</p>
+                <textarea id="import-textarea" placeholder="Paste your save data here..." style="width: 100%; height: 200px; font-family: monospace; font-size: 12px;"></textarea>
+                <div style="margin-top: 10px;">
+                    <button id="import-confirm-btn">Import Save</button>
+                    <button id="close-import-btn">Cancel</button>
+                </div>
+                <p style="color: #ff6b6b; font-size: 12px; margin-top: 10px;">
+                    ⚠️ Warning: This will overwrite your current save!
+                </p>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.style.display = 'flex';
+
+        // Import button functionality
+        document.getElementById('import-confirm-btn').addEventListener('click', () => {
+            const importData = document.getElementById('import-textarea').value.trim();
+            
+            if (!importData) {
+                alert('Please paste save data first!');
+                return;
+            }
+
+            try {
+                // Decode from base64 and parse JSON
+                const saveState = JSON.parse(atob(importData));
+                
+                // Validate save data structure
+                if (!saveState.gameState || !saveState.generators) {
+                    throw new Error('Invalid save data structure');
+                }
+
+                // Confirm before importing
+                if (confirm('Are you sure you want to import this save? This will overwrite your current progress!')) {
+                    // Load the imported data
+                    gameState = saveState.gameState;
+                    
+                    // Convert arrays back to Sets
+                    gameState.unlockedAchievements = new Set(saveState.gameState.unlockedAchievements || []);
+                    gameState.purchasedUpgrades = new Set(saveState.gameState.purchasedUpgrades || []);
+                    gameState.purchasedPrestigeUpgrades = new Set(saveState.gameState.purchasedPrestigeUpgrades || []);
+                    
+                    // Ensure all required properties exist
+                    if (!gameState.buffs) gameState.buffs = {};
+                    if (!gameState.totalPotatoesEarned) gameState.totalPotatoesEarned = gameState.potatoes || 0;
+                    if (!gameState.clicks) gameState.clicks = 0;
+                    if (!gameState.starch) gameState.starch = 0;
+                    if (!gameState.totalStarch) gameState.totalStarch = 0;
+
+                    // Load generator ownership
+                    saveState.generators.forEach(savedGen => {
+                        const gameGen = generators.find(g => g.id === savedGen.id);
+                        if (gameGen) {
+                            gameGen.owned = savedGen.owned || 0;
+                        }
+                    });
+
+                    // Save the imported data to localStorage
+                    saveGame();
+                    
+                    // Refresh the game display
+                    recalculatePps();
+                    populateGenerators();
+                    populateUpgrades();
+                    populatePrestigeUpgrades();
+                    populateAchievementsGrid();
+                    updateDisplay();
+
+                    alert('Save data imported successfully!');
+                    
+                    modal.style.display = 'none';
+                    modal.remove();
+                }
+            } catch (error) {
+                alert('Invalid save data! Please check your save string and try again.');
+                console.error('Import error:', error);
+            }
+        });
+
+        // Close button functionality
+        document.getElementById('close-import-btn').addEventListener('click', () => {
+            modal.style.display = 'none';
+            modal.remove();
+        });
+
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+        });
+    }
+
     // --- Save/Load Logic ---
     function saveGame() {
         // Convert Sets to Arrays for JSON serialization
@@ -754,6 +1055,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!gameState.clicks) gameState.clicks = 0;
             if (!gameState.starch) gameState.starch = 0;
             if (!gameState.totalStarch) gameState.totalStarch = 0;
+            
+            // Initialize quality control system if not present
+            if (!gameState.qualityLevel) gameState.qualityLevel = 1;
+            if (!gameState.qualityPoints) gameState.qualityPoints = 0;
+            if (!gameState.qualityInspections) gameState.qualityInspections = 0;
+            if (!gameState.defectivePotatoes) gameState.defectivePotatoes = 0;
+            if (!gameState.qualityBonusMultiplier) gameState.qualityBonusMultiplier = 1;
 
 
             // Load generator ownership
@@ -799,19 +1107,64 @@ document.addEventListener('DOMContentLoaded', () => {
         let total = 0;
         generators.forEach(gen => {
             let pps = gen.basePps;
-            // Apply generator-specific upgrade multipliers
-            const genUpgrades = Object.values(upgrades).filter(upg => upg.type === 'generator' && upg.generator === gen.id);
-            genUpgrades.forEach(upg => {
-                if (gameState.purchasedUpgrades.has(upg.id)) {
-                    pps *= 2;
+            
+            // Apply all generator-specific upgrades for this generator
+            for (const upgradeKey in upgrades) {
+                const upgrade = upgrades[upgradeKey];
+                if (upgrade.type === 'generator' && upgrade.generator === gen.id && gameState.purchasedUpgrades.has(upgradeKey)) {
+                    pps *= 2; // Each generator upgrade doubles the efficiency
                 }
-            });
+            }
+            
             total += gen.owned * pps;
         });
+
+        // Apply production boost upgrades (based on total potatoes made)
+        let productionBonus = 0;
+        if (gameState.purchasedUpgrades.has('potatoSerum')) {
+            productionBonus += gameState.totalPotatoesEarned * 0.05;
+        }
+        if (gameState.purchasedUpgrades.has('potatoEmpire')) {
+            productionBonus += gameState.totalPotatoesEarned * 0.10;
+        }
+        if (gameState.purchasedUpgrades.has('potatoInfinity')) {
+            productionBonus += gameState.totalPotatoesEarned * 0.25;
+        }
+        total += productionBonus;
+
+        // Apply dual generator upgrades
+        if (gameState.purchasedUpgrades.has('massProduction')) {
+            const cannonBonus = generators[2].owned * generators[2].basePps;
+            const factoryBonus = generators[3].owned * generators[3].basePps;
+            total += cannonBonus + factoryBonus; // Additional bonus equal to their base production
+        }
+
+        // Apply global multiplier upgrades
+        if (gameState.purchasedUpgrades.has('quantumSpuds')) {
+            total *= 1.5;
+        }
+
+        // Apply generator count upgrades
+        if (gameState.purchasedUpgrades.has('kilotonPotato')) {
+            const totalGenerators = generators.reduce((sum, gen) => sum + gen.owned, 0);
+            const multiplier = Math.pow(2, Math.floor(totalGenerators / 1000));
+            total *= multiplier;
+        }
 
         // Apply global prestige multiplier
         if (gameState.purchasedPrestigeUpgrades.has('cosmicSeasoning')) {
             total *= 1.10;
+        }
+
+        // Apply Prestige Power multiplier
+        if (gameState.purchasedPrestigeUpgrades.has('prestigePower')) {
+            total *= (1 + (gameState.starch * 0.01));
+        }
+
+        // Apply Quality Control bonus
+        if (gameState.purchasedUpgrades.has('qualityInspections')) {
+            updateQualityBonus(); // Ensure bonus is current
+            total *= gameState.qualityBonusMultiplier;
         }
 
         gameState.totalPps = total;
