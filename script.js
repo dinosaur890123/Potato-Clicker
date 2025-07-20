@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualSaveBtn = document.getElementById('manual-save-btn');
     const wipeSaveBtn = document.getElementById('wipe-save-btn');
     const achievementsModal = document.getElementById('achievements-modal');
+    const researchBtn = document.getElementById('research-btn');
+    const researchModal = document.getElementById('research-modal');
 
     // Game State
     let gameState = {
@@ -141,11 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'perfectQuality': { name: 'Perfect Quality', description: 'Unlock Quality Level 10 and triple quality bonus.', cost: 50000000, requirement: () => gameState.qualityLevel >= 8, effect: () => {}, type: 'quality_perfect' },
         'researchLab': {
             name: 'Research Lab',
-            description: 'Unlocks the Research tab, allowing you to spend potatoes on powerful technologies.',
+            description: 'Unlocks the Research Lab, allowing you to spend potatoes on powerful technologies.',
             cost: 1000000,
             requirement: () => gameState.totalPotatoesEarned >= 500000,
             effect: () => {
-                document.getElementById('research-tab-button').style.display = 'block';
+                researchBtn.style.display = 'inline-block';
             },
             type: 'unlock'
         },
@@ -419,10 +421,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Achievements modal
         document.getElementById('achievements-btn').addEventListener('click', () => {
-            document.getElementById('achievements-modal').style.display = 'flex';
+            achievementsModal.style.display = 'flex';
         });
-        const closeAchievementsModalBtn = document.getElementById('achievements-modal').querySelector('.close-btn');
-        closeAchievementsModalBtn.addEventListener('click', () => achievementsModal.style.display = 'none');
+        document.getElementById('achievements-modal').querySelector('.close-btn').addEventListener('click', () => achievementsModal.style.display = 'none');
+
+        // Research modal
+        researchBtn.addEventListener('click', () => {
+            researchModal.style.display = 'flex';
+        });
+        researchModal.querySelector('.close-btn').addEventListener('click', () => researchModal.style.display = 'none');
 
         // Tab listeners
         document.querySelectorAll('.tab-link').forEach(button => {
@@ -1227,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Re-apply effects from loaded upgrades that don't persist automatically
             if (gameState.purchasedUpgrades.has('researchLab')) {
-                document.getElementById('research-tab-button').style.display = 'block';
+                researchBtn.style.display = 'inline-block';
             }
 
             // Load generator ownership
