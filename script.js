@@ -287,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const elem = document.createElement('div');
             elem.id = `upgrade-${id}`;
 
+            // Always show as purchased if owned, never check requirements
             if (gameState.purchasedUpgrades.has(id)) {
                 elem.className = 'upgrade purchased';
                 elem.innerHTML = `
@@ -295,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="upgrade-cost">PURCHASED</p>
                 `;
             } else {
+                // Only check requirements if not purchased
                 const requirementMet = !upgrade.requirement || upgrade.requirement();
                 if (requirementMet) {
                     elem.className = 'upgrade';
@@ -314,7 +316,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p>${upgrade.description}</p>
                         <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
                     `;
+                    elem.addEventListener('click', () => {
+                        // Try to extract the missing requirement from the requirement function string
+                        let prereqMsg = 'You must meet the requirement to purchase this upgrade.';
+                        if (upgrade.requirement && upgrade.requirement.toString().includes('purchasedUpgrades.has')) {
+                            // Try to extract the required upgrade key
+                            const match = upgrade.requirement.toString().match(/purchasedUpgrades\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
+                            if (match && match[1]) {
+                                const prereqId = match[1];
+                                if (upgrades[prereqId]) {
+                                    prereqMsg = `Requires: ${upgrades[prereqId].name}`;
+                                }
+                            }
+                        }
+                        showLockedUpgradePopup(upgrade.name, prereqMsg);
+                    });
                 }
+// Show a popup for locked upgrades with missing requirements
+function showLockedUpgradePopup(upgradeName, prereqMsg) {
+    // Remove any existing popup
+    const existing = document.getElementById('locked-upgrade-popup');
+    if (existing) existing.remove();
+    const popup = document.createElement('div');
+    popup.id = 'locked-upgrade-popup';
+    popup.className = 'modal-overlay';
+    popup.innerHTML = `
+        <div class="modal-content">
+            <h2>Cannot Purchase: ${upgradeName}</h2>
+            <p style="margin: 20px 0; font-size: 1.1em; color: #ffc400;">${prereqMsg}</p>
+            <button class="close-btn" style="margin-top: 10px;">Close</button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+    popup.style.display = 'flex';
+    popup.querySelector('.close-btn').addEventListener('click', () => popup.remove());
+    popup.addEventListener('click', (e) => { if (e.target === popup) popup.remove(); });
+}
             }
             upgradesContainer.appendChild(elem);
         }
