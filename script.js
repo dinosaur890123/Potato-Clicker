@@ -82,6 +82,67 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: 60 * 60 * 4, // 4 hours
             requirement: () => gameState.completedResearch.has('spudComputing') && generators.find(g => g.id === 'planet').owned > 0,
             effect: () => {} // Applied in recalculatePps
+        },
+        // --- New Research Projects ---
+        'potatoAI': {
+            name: 'Potato AI',
+            description: 'Automates 10% of your clicks for 10 minutes.',
+            cost: 2000,
+            duration: 60 * 10, // 10 minutes
+            requirement: () => gameState.completedResearch.has('spudComputing'),
+            effect: () => {
+                // For 10 minutes, add 10% of clickPower per second
+                gameState.buffs.potatoAI = {
+                    expires: Date.now() + 10 * 60 * 1000
+                };
+            }
+        },
+        'starchSynthesis': {
+            name: 'Starch Synthesis',
+            description: 'Gain 5 free Starch on completion.',
+            cost: 5000,
+            duration: 60 * 15, // 15 minutes
+            requirement: () => gameState.completedResearch.has('potatoAI'),
+            effect: () => {
+                gameState.starch += 5;
+                gameState.totalStarch += 5;
+            }
+        },
+        'quantumTuberTheory': {           
+            name: 'Quantum Tuber Theory',
+            description: 'Doubles all generator output for 15 minutes.',
+            cost: 20000,
+            duration: 60 * 15, // 15 minutes
+            requirement: () => gameState.completedResearch.has('starchSynthesis'),
+            effect: () => {
+                gameState.buffs.quantumTuber = {
+                    expires: Date.now() + 15 * 60 * 1000
+                };
+            }
+        },
+        'goldenGenome': {
+            name: 'Golden Genome',
+            description: 'Golden Potatoes appear 50% more often for 30 minutes.',
+            cost: 50000,
+            duration: 60 * 30, // 30 minutes
+            requirement: () => gameState.completedResearch.has('quantumTuberTheory'),
+            effect: () => {
+                gameState.buffs.goldenGenome = {
+                    expires: Date.now() + 30 * 60 * 1000
+                };
+            }
+        },
+        'infiniteSpudEngine': {
+            name: 'Infinite Spud Engine',
+            description: 'Permanently increases PPS by 5%.',
+            cost: 100000,
+            duration: 0, // Instant
+            requirement: () => gameState.completedResearch.has('goldenGenome'),
+            effect: () => {
+                if (!gameState.infiniteSpudBonus) gameState.infiniteSpudBonus = 0;
+                gameState.infiniteSpudBonus += 0.05;
+                recalculatePps();
+            }
         }
     };
 
@@ -511,9 +572,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+
         let ppsThisSecond = gameState.totalPps;
 
-        // Apply buffs
+        // --- Research Buffs ---
+        // Quantum Tuber: double all generator output
+        if (gameState.buffs.quantumTuber && gameState.buffs.quantumTuber.expires > Date.now()) {
+            ppsThisSecond *= 2;
+        } else if (gameState.buffs.quantumTuber) {
+            delete gameState.buffs.quantumTuber;
+        }
+
+        // Infinite Spud Engine: permanent PPS boost
+        if (gameState.infiniteSpudBonus) {
+            ppsThisSecond *= (1 + gameState.infiniteSpudBonus);
+        }
+
+        // Fry Frenzy, Golden Rush, Potato Boost
         if (gameState.buffs.fryFrenzy) {
             ppsThisSecond *= 777;
         }
@@ -522,6 +597,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (gameState.buffs.potatoBoost) {
             ppsThisSecond *= 2;
+        }
+
+        // Potato AI: automate 10% of clickPower per second
+        if (gameState.buffs.potatoAI && gameState.buffs.potatoAI.expires > Date.now()) {
+            let autoClicks = Math.max(1, Math.floor(gameState.clickPower * 0.1));
+            gameState.potatoes += autoClicks;
+            gameState.totalPotatoesEarned += autoClicks;
+        } else if (gameState.buffs.potatoAI) {
+            delete gameState.buffs.potatoAI;
         }
 
         gameState.potatoes += ppsThisSecond;
@@ -733,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update research display
         if (gameState.purchasedUpgrades.has('researchLab')) {
-            document.getElementById('research-tab-button').style.display = 'block';
+            researchBtn.style.display = 'inline-block';
             document.getElementById('research-points').textContent = formatNumber(Math.floor(gameState.researchPoints));
             // Repopulate to update progress bars and availability
             populateResearch();
@@ -846,8 +930,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getRandomGoldenPotatoTime() {
         let time = (Math.random() * 600000) + 300000;
+        // Eye for an Eye prestige upgrade halves time
         if (gameState.purchasedPrestigeUpgrades.has('eyeForAnEye')) {
             time /= 2;
+        }
+        // Golden Genome research halves time (stacks multiplicatively)
+        if (gameState.buffs.goldenGenome && gameState.buffs.goldenGenome.expires > Date.now()) {
+            time /= 2;
+        } else if (gameState.buffs.goldenGenome) {
+            delete gameState.buffs.goldenGenome;
         }
         return time;
     }
@@ -1219,47 +1310,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!gameState.totalStarch) gameState.totalStarch = 0;
             
             // Initialize quality control system if not present
-            if (!gameState.qualityLevel) gameState.qualityLevel = 1;
-            if (!gameState.qualityPoints) gameState.qualityPoints = 0;
-            if (!gameState.qualityInspections) gameState.qualityInspections = 0;
-            if (!gameState.defectivePotatoes) gameState.defectivePotatoes = 0;
-            if (!gameState.qualityBonusMultiplier) gameState.qualityBonusMultiplier = 1;
+            if (typeof gameState.qualityLevel === 'undefined') gameState.qualityLevel = 1;
+            if (typeof gameState.qualityPoints === 'undefined') gameState.qualityPoints = 0;
+            if (typeof gameState.qualityInspections === 'undefined') gameState.qualityInspections = 0;
+            if (typeof gameState.defectivePotatoes === 'undefined') gameState.defectivePotatoes = 0;
+            if (typeof gameState.qualityBonusMultiplier === 'undefined') gameState.qualityBonusMultiplier = 1;
 
             // Initialize research system if not present
-            if (!gameState.researchPoints) gameState.researchPoints = 0;
-            if (!gameState.completedResearch) gameState.completedResearch = new Set();
+            if (typeof gameState.researchPoints === 'undefined') gameState.researchPoints = 0;
+            if (typeof gameState.completedResearch === 'undefined') gameState.completedResearch = new Set();
             else gameState.completedResearch = new Set(gameState.completedResearch); // Convert from array
-            if (!gameState.activeResearch) gameState.activeResearch = null;
-
-
-            // Re-apply effects from loaded upgrades that don't persist automatically
-            if (gameState.purchasedUpgrades.has('researchLab')) {
-                researchBtn.style.display = 'inline-block';
-            }
+            if (typeof gameState.activeResearch === 'undefined') gameState.activeResearch = null;
 
             // Load generator ownership
-            parsedState.generators.forEach(savedGen => {
-                const gameGen = generators.find(g => g.id === savedGen.id);
-                if (gameGen) {
-                    gameGen.owned = savedGen.owned || 0;
-                }
-            });
-
-            // Save the imported data to localStorage
-            saveGame();
+            if (parsedState.generators) {
+                parsedState.generators.forEach(savedGen => {
+                    const gameGen = generators.find(g => g.id === savedGen.id);
+                    if (gameGen) {
+                        gameGen.owned = savedGen.owned || 0;
+                    }
+                });
+            }
             
-            // Refresh the game display
-            recalculatePps();
-            populateGenerators();
-            populateUpgrades();
-            populatePrestigeUpgrades();
-            populateAchievementsGrid();
-            updateDisplay();
-
-            alert('Save data imported successfully!');
-            
-            modal.style.display = 'none';
-            modal.remove();
+            console.log("Game loaded from localStorage.");
         }
     }
 
