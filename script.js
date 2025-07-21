@@ -284,46 +284,38 @@ document.addEventListener('DOMContentLoaded', () => {
         upgradesContainer.innerHTML = '';
         for (const id in upgrades) {
             const upgrade = upgrades[id];
+            const elem = document.createElement('div');
+            elem.id = `upgrade-${id}`;
 
-            // Skip upgrades that are already purchased
             if (gameState.purchasedUpgrades.has(id)) {
-                const elem = document.createElement('div');
-                elem.id = `upgrade-${id}`;
                 elem.className = 'upgrade purchased';
                 elem.innerHTML = `
                     <h3>${upgrade.name}</h3>
                     <p>${upgrade.description}</p>
                     <p class="upgrade-cost">PURCHASED</p>
                 `;
-                upgradesContainer.appendChild(elem);
-                continue;
-            }
-
-            const requirementMet = !upgrade.requirement || upgrade.requirement();
-            const elem = document.createElement('div');
-            elem.id = `upgrade-${id}`;
-            
-            if (requirementMet) {
-                elem.className = 'upgrade';
-                elem.innerHTML = `
-                    <h3>${upgrade.name}</h3>
-                    <p>${upgrade.description}</p>
-                    <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
-                `;
-                
-                elem.addEventListener('click', () => buyUpgrade(id));
-                if (gameState.potatoes < upgrade.cost) {
-                    elem.classList.add('disabled');
-                }
             } else {
-                elem.className = 'upgrade locked';
-                elem.innerHTML = `
-                    <h3>${upgrade.name}</h3>
-                    <p>${upgrade.description}</p>
-                    <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
-                `;
+                const requirementMet = !upgrade.requirement || upgrade.requirement();
+                if (requirementMet) {
+                    elem.className = 'upgrade';
+                    elem.innerHTML = `
+                        <h3>${upgrade.name}</h3>
+                        <p>${upgrade.description}</p>
+                        <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
+                    `;
+                    elem.addEventListener('click', () => buyUpgrade(id));
+                    if (gameState.potatoes < upgrade.cost) {
+                        elem.classList.add('disabled');
+                    }
+                } else {
+                    elem.className = 'upgrade locked';
+                    elem.innerHTML = `
+                        <h3>${upgrade.name}</h3>
+                        <p>${upgrade.description}</p>
+                        <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
+                    `;
+                }
             }
-            
             upgradesContainer.appendChild(elem);
         }
     }    function populateResearch() {
