@@ -923,7 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createFloatingText(event.clientX, event.clientY, `+${formatNumber(lumpSum)}! (Lucky)`);
                 showRandomEventNotification('🍀 Lucky Spud!', 'You got a bonus lump sum!');
             }
-        }
+        }   
 
         // Don't reset the main timer here, let the despawn timer handle it
     }
