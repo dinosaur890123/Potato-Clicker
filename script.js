@@ -91,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: 60 * 10, // 10 minutes
             requirement: () => gameState.completedResearch.has('spudComputing'),
             effect: () => {
-
                 gameState.buffs.potatoAI = {
                     expires: Date.now() + 10 * 60 * 1000
                 };
@@ -319,21 +318,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     elem.addEventListener('click', () => {
                         // Try to extract the missing requirement from the requirement function string
                         let prereqMsg = 'You must meet the requirement to purchase this upgrade.';
+                        let details = '';
                         if (upgrade.requirement && upgrade.requirement.toString().includes('purchasedUpgrades.has')) {
                             // Try to extract the required upgrade key
-                            const match = upgrade.requirement.toString().match(/purchasedUpgrades\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
+                            const match = upgrade.requirement.toString().match(/purchasedUpgrades\\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
                             if (match && match[1]) {
                                 const prereqId = match[1];
                                 if (upgrades[prereqId]) {
                                     prereqMsg = `Requires: ${upgrades[prereqId].name}`;
+                                    details = upgrades[prereqId].description ? `<div style='margin-top:6px;font-size:0.95em;color:#ffc400;'>${upgrades[prereqId].description}</div>` : '';
                                 }
                             }
+                        } else if (upgrade.requirementText) {
+                            details = `<div style='margin-top:6px;font-size:0.95em;color:#ffc400;'>${upgrade.requirementText}</div>`;
                         }
-                        showLockedUpgradePopup(upgrade.name, prereqMsg);
+                        showLockedUpgradePopup(upgrade.name, prereqMsg, details);
                     });
                 }
 // Show a popup for locked upgrades with missing requirements
-function showLockedUpgradePopup(upgradeName, prereqMsg) {
+function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
     // Remove any existing popup
     const existing = document.getElementById('locked-upgrade-popup');
     if (existing) existing.remove(); 
@@ -345,6 +348,7 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
             <button class="close-btn" style="position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #fdfdfd; background: none; border: none; cursor: pointer;">&times;</button>
             <h2 style="margin-top: 0;">Cannot Purchase: ${upgradeName}</h2>
             <p style="margin: 20px 0; font-size: 1.1em; color: #ffc400;">${prereqMsg}</p>
+            ${details}
         </div>
     `;
     document.body.appendChild(popup);
@@ -566,6 +570,13 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
             gen.owned++;
             recalculatePps();
             updateDisplay();
+            
+            // Add animation
+            const genElement = document.getElementById(`generator-${gen.id}`);
+            if (genElement) {
+                genElement.classList.add('item-purchased-animation');
+                setTimeout(() => genElement.classList.remove('item-purchased-animation'), 400);
+            }
         }
     }
 
@@ -574,10 +585,19 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
         if (gameState.potatoes >= upgrade.cost && !gameState.purchasedUpgrades.has(id)) {
             gameState.potatoes -= upgrade.cost;
             gameState.purchasedUpgrades.add(id);
-            upgrade.effect();
+            if (upgrade.effect) {
+                upgrade.effect();
+            }
             recalculatePps();
-            populateUpgrades(); // Refresh the upgrade list
+            populateUpgrades(); // Repopulates to show as purchased
             updateDisplay();
+
+            // Add animation
+            const upgradeElement = document.getElementById(`upgrade-${id}`);
+            if (upgradeElement) {
+                upgradeElement.classList.add('item-purchased-animation');
+                setTimeout(() => upgradeElement.classList.remove('item-purchased-animation'), 400);
+            }
         }
     }
 
@@ -997,7 +1017,8 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
 
         for (const buffName in gameState.buffs) {
             const buff = gameState.buffs[buffName];
-            const timeLeft = Math.ceil((buff.endTime - Date.now()) / 1000);
+            const expiry = buff.endTime || buff.expires;
+            const timeLeft = expiry ? Math.ceil((expiry - Date.now()) / 1000) : 0;
             if (timeLeft > 0) {
                 const buffElem = document.createElement('div');
                 buffElem.className = 'buff';
@@ -1266,7 +1287,7 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
 
                     // Re-apply effects from loaded upgrades that don't persist automatically
                     if (gameState.purchasedUpgrades.has('researchLab')) {
-                        document.getElementById('research-tab-button').style.display = 'block';
+                        researchBtn.style.display = 'inline-block';
                     }
 
                     // Load generator ownership
@@ -1341,33 +1362,17 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
         const savedState = localStorage.getItem('potatoClickerSave');
         if (savedState) {
             const parsedState = JSON.parse(savedState);
-            
-            // Load core game state
-            gameState = parsedState.gameState;
-            // Convert loaded arrays back to Sets
-            gameState.unlockedAchievements = new Set(parsedState.gameState.unlockedAchievements);
-            gameState.purchasedUpgrades = new Set(parsedState.gameState.purchasedUpgrades);
-            gameState.purchasedPrestigeUpgrades = new Set(parsedState.gameState.purchasedPrestigeUpgrades || []); // Backwards compatibility
-            if (!gameState.buffs) gameState.buffs = {};
-            if (!gameState.totalPotatoesEarned) gameState.totalPotatoesEarned = gameState.potatoes;
-            if (!gameState.clicks) gameState.clicks = 0;
-            if (!gameState.starch) gameState.starch = 0;
-            if (!gameState.totalStarch) gameState.totalStarch = 0;
-            
-            // Initialize quality control system if not present
-            if (typeof gameState.qualityLevel === 'undefined') gameState.qualityLevel = 1;
-            if (typeof gameState.qualityPoints === 'undefined') gameState.qualityPoints = 0;
-            if (typeof gameState.qualityInspections === 'undefined') gameState.qualityInspections = 0;
-            if (typeof gameState.defectivePotatoes === 'undefined') gameState.defectivePotatoes = 0;
-            if (typeof gameState.qualityBonusMultiplier === 'undefined') gameState.qualityBonusMultiplier = 1;
 
-            // Initialize research system if not present
-            if (typeof gameState.researchPoints === 'undefined') gameState.researchPoints = 0;
-            if (typeof gameState.completedResearch === 'undefined') gameState.completedResearch = new Set();
-            else gameState.completedResearch = new Set(gameState.completedResearch); // Convert from array
-            if (typeof gameState.activeResearch === 'undefined') gameState.activeResearch = null;
+            // Restore gameState by merging, not replacing
+            gameState = { ...gameState, ...parsedState.gameState };
 
-            // Load generator ownership
+            // Correctly restore Sets from arrays, ensuring they exist
+            gameState.purchasedUpgrades = new Set(parsedState.gameState.purchasedUpgrades || []);
+            gameState.unlockedAchievements = new Set(parsedState.gameState.unlockedAchievements || []);
+            gameState.completedResearch = new Set(parsedState.gameState.completedResearch || []);
+            gameState.purchasedPrestigeUpgrades = new Set(parsedState.gameState.purchasedPrestigeUpgrades || []);
+
+            // Restore generator ownership
             if (parsedState.generators) {
                 parsedState.generators.forEach(savedGen => {
                     const gameGen = generators.find(g => g.id === savedGen.id);
@@ -1408,13 +1413,16 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
                 }
             }
 
-            // Apply all generator-specific upgrades for this generator
+            // Only apply upgrades that are for this generator
             for (const upgradeKey in upgrades) {
+                const upgrade = upgrades[upgradeKey];
                 if (gameState.purchasedUpgrades.has(upgradeKey)) {
-                    pps *= 2; // Each generator upgrade doubles the efficiency
+                    if (upgrade.type === 'generator' && upgrade.generator === gen.id) {
+                        pps *= 2;
+                    }
+                    // If you have dual_generator or global upgrades, handle them here as needed
                 }
             }
-            
             total += gen.owned * pps;
         });
 
