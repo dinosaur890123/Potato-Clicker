@@ -91,13 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: 60 * 10, // 10 minutes
             requirement: () => gameState.completedResearch.has('spudComputing'),
             effect: () => {
-                // For 10 minutes, add 10% of clickPower per second
+
                 gameState.buffs.potatoAI = {
                     expires: Date.now() + 10 * 60 * 1000
                 };
             }
         },
-        'starchSynthesis': {
+        'starchSynthesis': {                       
             name: 'Starch Synthesis',
             description: 'Gain 5 free Starch on completion.',
             cost: 5000,
@@ -336,15 +336,15 @@ document.addEventListener('DOMContentLoaded', () => {
 function showLockedUpgradePopup(upgradeName, prereqMsg) {
     // Remove any existing popup
     const existing = document.getElementById('locked-upgrade-popup');
-    if (existing) existing.remove();
+    if (existing) existing.remove(); 
     const popup = document.createElement('div');
     popup.id = 'locked-upgrade-popup';
     popup.className = 'modal-overlay';
-    popup.innerHTML = `
-        <div class="modal-content">
-            <h2>Cannot Purchase: ${upgradeName}</h2>
+    popup.innerHTML = `                  
+        <div class="modal-content" style="position: relative;">
+            <button class="close-btn" style="position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #fdfdfd; background: none; border: none; cursor: pointer;">&times;</button>
+            <h2 style="margin-top: 0;">Cannot Purchase: ${upgradeName}</h2>
             <p style="margin: 20px 0; font-size: 1.1em; color: #ffc400;">${prereqMsg}</p>
-            <button class="close-btn" style="margin-top: 10px;">Close</button>
         </div>
     `;
     document.body.appendChild(popup);
@@ -1040,40 +1040,56 @@ function showLockedUpgradePopup(upgradeName, prereqMsg) {
         const gain = calculatePrestigeGain();
         if (gain <= 0) return;
 
-        if (confirm(`Are you sure you want to Mash? You will gain ${formatNumber(gain)} Starch (✨) but your potatoes, generators, and upgrades will be reset.`)) {
-            const newStarch = gameState.starch + gain;
-            const newTotalStarch = gameState.totalStarch + gain;
+        if (confirm(`Are you sure you want to Mash? You will gain ${formatNumber(gain)} Starch (✨) but your potatoes, generators, upgrades, and research will be reset.`)) {
+            // Preserve prestige upgrades and achievements
             const prestigeUpgrades = new Set(gameState.purchasedPrestigeUpgrades);
             const achievements = new Set(gameState.unlockedAchievements);
 
-            // Reset the game state, but keep prestige-related things
-            gameState = {
-                potatoes: 0,
-                totalPotatoesEarned: 0,
-                clicks: 0,
-                totalPps: 0,
-                clickPower: 1,
-                buffs: {},
-                unlockedAchievements: achievements,
-                purchasedUpgrades: new Set(),
-                starch: newStarch,
-                totalStarch: newTotalStarch,
-                purchasedPrestigeUpgrades: prestigeUpgrades,
-            };
+            // Reset all relevant state
+            gameState.potatoes = 0;
+            gameState.totalPotatoesEarned = 0;
+            gameState.clicks = 0;
+            gameState.totalPps = 0;
+            gameState.clickPower = 1;
+            gameState.buffs = {};
+            gameState.qualityLevel = 1;
+            gameState.qualityPoints = 0;
+            gameState.qualityInspections = 0;
+            gameState.defectivePotatoes = 0;
+            gameState.qualityBonusMultiplier = 1;
+            gameState.totalPlayTime = 0;
+            gameState.gameStartTime = Date.now();
+            gameState.randomEventCooldown = 0;
+            gameState.newsTickerMessages = [];
+            gameState.researchPoints = 0;
+            gameState.completedResearch = new Set();
+            gameState.activeResearch = null;
+            gameState.purchasedUpgrades = new Set();
+            // Add starch
+            gameState.starch += gain;
+            gameState.totalStarch += gain;
+            // Restore prestige upgrades and achievements
+            gameState.purchasedPrestigeUpgrades = prestigeUpgrades;
+            gameState.unlockedAchievements = achievements;
 
             // Reset generators
             generators.forEach(g => g.owned = 0);
 
             // Apply prestige effects
             if (gameState.purchasedPrestigeUpgrades.has('starchyStart')) {
-                generators.find(g => g.id === 'farmer').owned = 10;
+                const farmerGen = generators.find(g => g.id === 'farmer');
+                if (farmerGen) farmerGen.owned = 10;
             }
 
             recalculatePps();
             populateGenerators();
             populateUpgrades();
+            populatePrestigeUpgrades();
+            populateResearch();
             updateDisplay();
+            saveGame();
             document.getElementById('prestige-tab-button').style.display = 'none';
+            showAchievementNotification('Spudtastic Voyage');
         }
     }
 
