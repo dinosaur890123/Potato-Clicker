@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (gameState.potatoes < upgrade.cost) {
                         elem.classList.add('disabled');
                     }
-                } else {
+                } else { 
                     elem.className = 'upgrade locked';
                     elem.innerHTML = `
                         <h3>${upgrade.name}</h3>
