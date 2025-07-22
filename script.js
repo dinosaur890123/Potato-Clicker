@@ -272,7 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="generator-owned" id="owned-${gen.id}">0</p>
                 </div>
             `;
-            elem.addEventListener('click', () => buyGenerator(gen));
+            elem.addEventListener('click', () => {
+                const cost = calculateCost(gen);
+                if (!elem.classList.contains('disabled') && gameState.potatoes >= cost) {
+                    buyGenerator(gen);
+                }
+            });
             generatorsContainer.appendChild(elem);
         });
         // We need to call updateDisplay once after populating to set initial states
@@ -304,7 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p>${upgrade.description}</p>
                         <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
                     `;
-                    elem.addEventListener('click', () => buyUpgrade(id));
+                    elem.addEventListener('click', () => {
+                        if (!elem.classList.contains('disabled') && gameState.potatoes >= upgrade.cost) {
+                            buyUpgrade(id);
+                        }
+                    });
                     if (gameState.potatoes < upgrade.cost) {
                         elem.classList.add('disabled');
                     }
