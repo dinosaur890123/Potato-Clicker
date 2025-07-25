@@ -1125,7 +1125,7 @@ function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
             populateResearch();
             updateDisplay();
             saveGame();
-            document.getElementById('prestige-tab-button').style.display = 'none';
+            // Do not hide the prestige tab after reset; keep it visible so upgrades can be purchased
             showAchievementNotification('Spudtastic Voyage');
         }
     }
