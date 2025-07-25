@@ -1044,15 +1044,11 @@ function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
         if (prestigeReqText) {
             prestigeReqText.textContent = `Prestige unlocks when you have earned 100 million potatoes. Progress: ${progress}%`;
         }
-        if (prestigeGain > 0) {
-            prestigeTabBtn.style.display = 'block';
-            prestigeTabBtn.classList.remove('prestige-locked');
-            prestigeTabBtn.title = '';
-        } else {
-            prestigeTabBtn.style.display = 'block';
-            prestigeTabBtn.classList.add('prestige-locked');
-            prestigeTabBtn.title = `Prestige unlocks when you have earned 100 million potatoes.\nProgress: ${progress}%`;
-        }
+        // Unlock prestige tab if player has ever prestiged (has starch), even if potatoes are reset
+        // Always show the prestige tab
+        prestigeTabBtn.style.display = 'block';
+        prestigeTabBtn.classList.remove('prestige-locked');
+        prestigeTabBtn.title = '';
     }
 
     function calculatePrestigeGain() {
