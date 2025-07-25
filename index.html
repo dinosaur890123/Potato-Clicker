@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Potato Clicker</title>
     <link rel="stylesheet" href="style.css">
+    <style id="prestige-locked-style">
+        #prestige-tab-button.prestige-locked {
+            opacity: 0.5;
+            pointer-events: none;
+            position: relative;
+        }
+        #prestige-tab-button.prestige-locked::after {
+            content: " (Locked)";
+            color: #ffc400;
+            font-size: 0.95em;
+            margin-left: 4px;
+        }
+    </style>
 </head>
 <body>
     <div id="game-container">
@@ -31,7 +44,7 @@
         <div id="middle-column" class="column">
             <div class="tabs">
                 <button class="tab-link active" data-tab="generators-tab">Generators</button>
-                <button class="tab-link" data-tab="prestige-tab" id="prestige-tab-button">Prestige</button>
+                <button class="tab-link" data-tab="prestige-tab" id="prestige-tab-button" title="Prestige unlocks when you have earned 1 trillion potatoes.\nProgress: 0%">Prestige</button>
             </div>
 
             <div id="generators-tab" class="tab-content active">
@@ -43,6 +56,9 @@
             <div id="prestige-tab" class="tab-content">
                 <h2>The Mashing</h2>
                 <p>Reset your game to earn Starch (✨) and unlock powerful permanent upgrades.</p>
+                <div id="prestige-requirements" style="margin-bottom: 10px; color: #ffc400; font-size: 1.1em;">
+                    <span id="prestige-req-text">Prestige unlocks when you have earned 100 million potatoes. Progress: 0%</span>
+                </div>
                 <div id="prestige-info">
                     <p>Mash now to gain: <span id="prestige-gain">0</span> ✨</p>
                 </div>

@@ -316,6 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (gameState.potatoes < upgrade.cost) {
                         elem.classList.add('disabled');
+                    } else {
+                        elem.classList.remove('disabled');
                     }
                 } else { 
                     elem.className = 'upgrade locked';
@@ -325,11 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
                     `;
                     elem.addEventListener('click', () => {
-                        // Try to extract the missing requirement from the requirement function string
+                       
                         let prereqMsg = 'You must meet the requirement to purchase this upgrade.';
                         let details = '';
                         if (upgrade.requirement && upgrade.requirement.toString().includes('purchasedUpgrades.has')) {
-                            // Try to extract the required upgrade key
+                       
                             const match = upgrade.requirement.toString().match(/purchasedUpgrades\\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
                             if (match && match[1]) {
                                 const prereqId = match[1];
@@ -344,9 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         showLockedUpgradePopup(upgrade.name, prereqMsg, details);
                     });
                 }
-// Show a popup for locked upgrades with missing requirements
+
 function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
-    // Remove any existing popup
+
     const existing = document.getElementById('locked-upgrade-popup');
     if (existing) existing.remove(); 
     const popup = document.createElement('div');
@@ -421,66 +423,52 @@ function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
         const grid = document.getElementById('achievements-grid');
         if (!grid) return; // Exit if element doesn't exist
         
-        grid.innerHTML = '';
-        for (const id in achievements) {
-            const achievement = achievements[id];
-            const isUnlocked = gameState.unlockedAchievements.has(id);
+        upgradesContainer.innerHTML = '';
+        for (const id in upgrades) {
+            const upgrade = upgrades[id];
             const elem = document.createElement('div');
-            elem.className = isUnlocked ? 'achievement-tile unlocked' : 'achievement-tile locked';
-            elem.innerHTML = `
-                <div class="achievement-icon">${achievement.icon}</div>
-                <div class="achievement-tooltip">
-                    <h4>${achievement.name}</h4>
-                    <p class="achievement-desc">${achievement.description}</p>
-                    <p class="achievement-reward">${achievement.reward}</p>
-                    <p class="achievement-status">${isUnlocked ? 'UNLOCKED' : 'LOCKED'}</p>
-                </div>
-            `;
-            
-            // Make achievements clickable to show details
-            elem.addEventListener('click', () => showAchievementDetails(id, achievement, isUnlocked));
-            elem.style.cursor = 'pointer';
-            
-            grid.appendChild(elem);
-        }
-    }
+            elem.id = `upgrade-${id}`;
 
-    function showAchievementDetails(id, achievement, isUnlocked) {
-        // Create modal for achievement details
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay achievement-detail-modal';
-        modal.innerHTML = `
-            <div class="modal-content achievement-detail-content">
-                <h2>${achievement.icon} ${achievement.name}</h2>
-                <div class="achievement-detail-body">
-                    <p class="achievement-desc-large">${achievement.description}</p>
-                    <p class="achievement-reward-large"><strong>Reward:</strong> ${achievement.reward}</p>
-                    <div class="achievement-status-large ${isUnlocked ? 'unlocked' : 'locked'}">
-                        ${isUnlocked ? '✅ UNLOCKED' : '🔒 LOCKED'}
-                    </div>
-                </div>
-                <button class="close-btn">&times;</button>
-            </div>
-        `;
-        
-        // Add to document and show
-        document.body.appendChild(modal);
-        modal.style.display = 'flex';
-        
-        // Close modal functionality
-        const closeBtn = modal.querySelector('.close-btn');
-        closeBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-            modal.remove();
-        });
-        
-        // Close when clicking outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                modal.remove();
+            // Always show as purchased if owned, never check requirements
+            if (gameState.purchasedUpgrades.has(id)) {
+                elem.className = 'upgrade purchased';
+                elem.innerHTML = `
+                    <h3>${upgrade.name}</h3>
+                    <p>${upgrade.description}</p>
+                    <p class="upgrade-cost">PURCHASED</p>
+                `;
+            } else {
+                // Only check requirements if not purchased
+                const requirementMet = !upgrade.requirement || upgrade.requirement();
+                if (requirementMet) {
+                    elem.className = 'upgrade';
+                    elem.innerHTML = `
+                        <h3>${upgrade.name}</h3>
+                        <p>${upgrade.description}</p>
+                        <p class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</p>
+                    `;
+                    elem.addEventListener('click', () => {
+                        if (!elem.classList.contains('disabled') && gameState.potatoes >= upgrade.cost) {
+                            buyUpgrade(id);
+                        }
+                    });
+                    // Always update the disabled class based on current potatoes
+                    if (gameState.potatoes < upgrade.cost) {
+                        elem.classList.add('disabled');
+                    } else {
+                        elem.classList.remove('disabled');
+                    }
+                } else {
+                    elem.className = 'upgrade disabled';
+                    elem.innerHTML = `
+                        <h3>${upgrade.name}</h3>
+                        <p>${upgrade.description}</p>
+                        <p class="upgrade-cost">Locked</p>
+                    `;
+                }
             }
-        });
+            upgradesContainer.appendChild(elem);
+        }
     }
 
     function populatePrestigeUpgrades() {
