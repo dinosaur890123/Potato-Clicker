@@ -319,30 +319,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         elem.classList.remove('disabled');
                     }
-                } else { 
+                } else {
                     elem.className = 'upgrade locked';
+                    // Try to extract requirement info
+                    let reqText = '';
+                    if (upgrade.requirement && upgrade.requirement.toString().includes('purchasedUpgrades.has')) {
+                        const match = upgrade.requirement.toString().match(/purchasedUpgrades\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
+                        if (match && match[1] && upgrades[match[1]]) {
+                            reqText = `<div style='color:#ffc400;font-size:0.95em;'>Requires: ${upgrades[match[1]].name} - ${upgrades[match[1]].description}</div>`;
+                        }
+                    } else if (upgrade.requirementText) {
+                        reqText = `<div style='color:#ffc400;font-size:0.95em;'>${upgrade.requirementText}</div>`;
+                    } else if (upgrade.requirement && upgrade.requirement.toString().includes('owned')) {
+                        // Try to extract generator requirements
+                        reqText = `<div style='color:#ffc400;font-size:0.95em;'>Requires: ${upgrade.description}</div>`;
+                    }
                     elem.innerHTML = `
                         <h3>${upgrade.name}</h3>
                         <p>${upgrade.description}</p>
                         <p class="upgrade-cost">🔒 Cost: ${formatNumber(upgrade.cost)}</p>
+                        ${reqText}
                     `;
                     elem.addEventListener('click', () => {
-                       
                         let prereqMsg = 'You must meet the requirement to purchase this upgrade.';
-                        let details = '';
-                        if (upgrade.requirement && upgrade.requirement.toString().includes('purchasedUpgrades.has')) {
-                       
-                            const match = upgrade.requirement.toString().match(/purchasedUpgrades\\.has\(['"]([a-zA-Z0-9_]+)['"]\)/);
-                            if (match && match[1]) {
-                                const prereqId = match[1];
-                                if (upgrades[prereqId]) {
-                                    prereqMsg = `Requires: ${upgrades[prereqId].name}`;
-                                    details = upgrades[prereqId].description ? `<div style='margin-top:6px;font-size:0.95em;color:#ffc400;'>${upgrades[prereqId].description}</div>` : '';
-                                }
-                            }
-                        } else if (upgrade.requirementText) {
-                            details = `<div style='margin-top:6px;font-size:0.95em;color:#ffc400;'>${upgrade.requirementText}</div>`;
-                        }
+                        let details = reqText;
                         showLockedUpgradePopup(upgrade.name, prereqMsg, details);
                     });
                 }
@@ -1033,14 +1033,31 @@ function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
     // --- Prestige Logic ---
     function checkPrestige() {
         const prestigeGain = calculatePrestigeGain();
+        const prestigeTabBtn = document.getElementById('prestige-tab-button');
+        const prestigeReqText = document.getElementById('prestige-req-text');
+        const requiredPotatoes = 100000000; // 100 million
+        if (!prestigeTabBtn) return;
+        // Calculate progress toward prestige
+        const progress = Math.min(100, Math.floor((gameState.totalPotatoesEarned / requiredPotatoes) * 100));
+        if (prestigeReqText) {
+            prestigeReqText.textContent = `Prestige unlocks when you have earned 100 million potatoes. Progress: ${progress}%`;
+        }
         if (prestigeGain > 0) {
-            document.getElementById('prestige-tab-button').style.display = 'block';
+            prestigeTabBtn.style.display = 'block';
+            prestigeTabBtn.classList.remove('prestige-locked');
+            prestigeTabBtn.title = '';
+        } else {
+            prestigeTabBtn.style.display = 'block';
+            prestigeTabBtn.classList.add('prestige-locked');
+            prestigeTabBtn.title = `Prestige unlocks when you have earned 100 million potatoes.\nProgress: ${progress}%`;
         }
     }
 
     function calculatePrestigeGain() {
-        // Using the formula from Cookie Clicker: cube root of (total potatoes / 1 trillion)
-        const gain = Math.floor(Math.cbrt(gameState.totalPotatoesEarned / 1e12));
+        // Prestige unlocks at 100 million potatoes
+        if (gameState.totalPotatoesEarned < 100000000) return 0;
+        // Example: 1 starch per 100 million potatoes earned
+        const gain = Math.floor(gameState.totalPotatoesEarned / 100000000);
         return gain;
     }
 
