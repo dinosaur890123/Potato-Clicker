@@ -1038,7 +1038,9 @@ function showLockedUpgradePopup(upgradeName, prereqMsg, details = '') {
         const requiredPotatoes = 100000000; // 100 million
         if (!prestigeTabBtn) return;
         // Calculate progress toward prestige
-        const progress = Math.min(100, Math.floor((gameState.totalPotatoesEarned / requiredPotatoes) * 100));
+        let progress = (gameState.totalPotatoesEarned / requiredPotatoes) * 100;
+        if (progress > 100) progress = 100;
+        progress = progress < 1 && gameState.totalPotatoesEarned > 0 ? progress.toFixed(2) : Math.floor(progress);
         if (prestigeReqText) {
             prestigeReqText.textContent = `Prestige unlocks when you have earned 100 million potatoes. Progress: ${progress}%`;
         }
