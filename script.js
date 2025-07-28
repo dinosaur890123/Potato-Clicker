@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let generators = [
         { id: 'sprout', name: 'Potato Sprout', description: "A tiny, hopeful green shoot.", baseCost: 5, basePps: 1, owned: 0 },
         { id: 'farmer', name: 'Tater Tot Farmer', description: "A stout, grumpy-looking potato person.", baseCost: 75, basePps: 8, owned: 0 },
-        { id: 'cannon', name: 'Potato Cannon', description: "Launches psotatoes into a giant pile.", baseCost: 750, basePps: 55, owned: 0 },
+        { id: 'cannon', name: 'Potato Cannon', description: "Launches potatoes into a giant pile.", baseCost: 750, basePps: 55, owned: 0 },
         { id: 'factory', name: 'Fryer Factory', description: "Turns raw spuds into valuable fries.", baseCost: 8000, basePps: 320, owned: 0 },
         { id: 'couch', name: 'Couch Potato', description: "Generates spuds via sheer willpower.", baseCost: 90000, basePps: 1900, owned: 0 },
         { id: 'spudnik', name: 'Spudnik Satellite', description: "Beams down potato-multiplying energy.", baseCost: 1000000, basePps: 12000, owned: 0 },
